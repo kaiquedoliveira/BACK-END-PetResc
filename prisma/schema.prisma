@@ -1,78 +1,72 @@
-// This is your Prisma schema file, 
-// learn more about it in the docs: https://pris.ly/d/prisma-schema 
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions? 
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-/// Conta de login e papel de cada usuário
+/// login usuário
 model Account {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  password  String
-  role      Role
-  admin     Admin?
-  ong       Ong?
-  publico   Publico?
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  password String
+  role     Role
+  admin    Admin?
+  ong      Ong?
+  publico  Publico?
 }
 
-/// Definição dos papéis possíveis
+/// papéis possíveis
 enum Role {
   ADMIN
   ONG
   PUBLICO
 }
 
-/// Perfil de administrador — usa o mesmo ID da Account
+/// Perfil de administrador — usa o mesmo ID da asccount
 model Admin {
-  id       Int     @id
-  nome     String
-  account  Account @relation(fields: [id], references: [id])
-}
-
-/// Perfil de ONG — usa o mesmo ID da Account
-model Ong {
-  id        Int     @id
-  nome      String
-  cnpj      String
-  descricao String
-  endereco  String
-  account   Account @relation(fields: [id], references: [id])
+  id      Int     @id
+  nome    String
+  account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
 /// Perfil de público geral — usa o mesmo ID da Account
 model Publico {
-  id       Int     @id
-  nome     String
-  account  Account @relation(fields: [id], references: [id])
+  id      Int     @id
+  nome    String
+  account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
-/// Cadastro dos animais para adoção
+/// Perfil de ONG — usa o mesmo ID da Account
+model Ong {
+  id        Int      @id
+  name      String
+  cnpj      String?
+  descricao String?
+  endereco  String?
+  account   Account  @relation(fields: [id], references: [id], onDelete: Cascade)
+  animals   Animal[] @relation("OngAnimals")
+}
+
 model Animal {
-  id          Int           @id @default(autoincrement())
-  nome        String
-  especie     String
-  raca        String
-  idade       Int
-  status      StatusAdocao  @default(DISPONIVEL)
-  porte       String
-  sexo        String
-  descricao   String
-  createdAt   DateTime      @default(now())
-  photoURL    String?
-  ongId       Int
-  ong         Ong           @relation(fields: [ongId], references: [id])
+  id        Int      @id @default(autoincrement())
+  nome      String
+  especie   String
+  raca      String?
+  idade     Int?
+  status    StatusAdocao @default(DISPONIVEL)
+  porte     String?
+  sexo      String?
+  descricao String?
+  photoURL  String?
+  ongId     Int
+  ong       Ong      @relation("OngAnimals", fields: [ongId], references: [id])
+  
+  @@map("animals")
 }
-
 /// Estados possíveis no fluxo de adoção
 enum StatusAdocao {
   DISPONIVEL
