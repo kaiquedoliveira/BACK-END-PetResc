@@ -6,7 +6,7 @@ function authenticateToken(req, res, next) {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: 'Token inválido' });
-    req.user = user; // Disponível nas rotas
+    req.user = user; 
     next();
   });
 }
