@@ -48,7 +48,7 @@ model Ong {
   descricao String?
   endereco  String?
   account   Account  @relation(fields: [id], references: [id], onDelete: Cascade)
-  animals   Animal[] @relation("OngAnimals")
+  animals   Animal[] @relation("AnimalOng")
 }
 
 model Animal {
@@ -63,14 +63,86 @@ model Animal {
   descricao String?
   photoURL  String?
   corPredominante  String?
+
+
+  ficha     Ficha? @relation("AnimalFicha")
+
   ongId     Int
-  ong       Ong      @relation("OngAnimals", fields: [ongId], references: [id])
+  ong       Ong      @relation("AnimalOng", fields: [ongId], references: [id])
+
+  denuncias Denuncia[] @relation("AnimalDenuncias")
   
   @@map("animals")
 }
-/// Estados possíveis no fluxo de adoção
+
+model Ficha {
+
+  id              Int      @id @default(autoincrement())
+  nome            String
+  photoURL        String?
+  especie         String
+  raca            String?
+  sexo            String?
+  porte           String?
+  dataNascimento  DateTime?
+  idade           Int?      // pode manter junto do nascimento (campo derivado)
+  peso            Float?
+  status          StatusAdocao @default(DISPONIVEL)
+
+// Saúde
+  saude           String?
+  vacinas         String?
+  vermifugos      String?
+  castrado        Boolean   @default(false)
+  alergias        String?
+  medicacoes      String?
+  ultimaConsulta  DateTime?
+  microchip       String?   @unique
+
+// Comportamento
+  temperamento    String
+  socializacao    String?
+  cuidados        String?
+  nivelEnergia    Int?     
+  conviveCom      String?
+  necessidadesEspeciais String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       Int?     
+
+  animalId        Int      @unique
+  animal          Animal   @relation("AnimalFicha", fields: [animalId], references: [id])
+  
+  @@map("fichas")
+}
+
+/// Estados possíveis para adoção
 enum StatusAdocao {
   DISPONIVEL
   ADOTADO
   SOBRE_TRATAMENTO
+}
+
+model Denuncia {
+  id         Int      @id @default(autoincrement())
+  descricao  String
+  localizacao String
+  anonimo   Boolean  @default(false)
+  contato    String
+  animalId   Int
+  animal     Animal   @relation("AnimalDenuncias", fields: [animalId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       Int?     
+  
+  @@map("denuncias")
+}
+
+/// Estados possíveis para denúncias
+enum StatusDenuncia {
+  PENDENTE
+  EM_ANALISE
+  RESOLVIDA
+  REJEITADA
 }
