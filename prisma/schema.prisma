@@ -62,6 +62,7 @@ model Animal {
   sexo      String?
   descricao String?
   photoURL  String?
+  corPredominante  String?
   ongId     Int
   ong       Ong      @relation("OngAnimals", fields: [ongId], references: [id])
   
