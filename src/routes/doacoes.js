@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const doacoesController = require('../controller/doacaoController');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 
-router.get('/', doacoesController.getAll);
-router.get('/:id', doacoesController.getById);
-router.post('/', doacoesController.create);
-router.get('/ong/:id', doacoesController.getByOng);
+
+router.get('/', authenticateToken, doacoesController.getAll);
+router.get('/:id',authenticateToken, doacoesController.getById);
+router.post('/', authenticateToken, doacoesController.create);
+router.get('/ong/:id', authenticateToken, doacoesController.getByOng);
 
 module.exports = router;

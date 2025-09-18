@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const adocoesController = require('../controller/adocoesController');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 
-router.get('/', adocoesController.listarTodos);
-router.get('/:id', adocoesController.listarPorId);
-router.post('/', adocoesController.criar);
-router.put('/:id', adocoesController.atualizar);
-router.delete('/:id', adocoesController.deletar);
+
+router.get('/', authenticateToken, adocoesController.listarTodos);
+router.get('/:id',authenticateToken,  adocoesController.listarPorId);
+router.post('/', authenticateToken, adocoesController.criar);
+router.put('/:id', authenticateToken, adocoesController.atualizar);
+router.delete('/:id',authenticateToken, adocoesController.deletar);
 
 module.exports = router;

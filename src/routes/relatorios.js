@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const relatorioController = require('../controller/relatoriosController');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
-router.get('/animais', relatorioController.relatorioAnimais);
-router.get('/doacoes', relatorioController.relatorioDoacoes);
-router.get('/usuarios', relatorioController.relatorioUsuarios);
+
+router.get('/animais',authenticateToken,  relatorioController.relatorioAnimais);
+router.get('/doacoes', authenticateToken, relatorioController.relatorioDoacoes);
+router.get('/usuarios', authenticateToken, relatorioController.relatorioUsuarios);
 
 module.exports = router;
