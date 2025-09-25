@@ -32,6 +32,38 @@ const registerOng = async (req, res) => {
   }
 };
 
+// Atualizar ONG
+const updateOng = async (req, res) => {
+  const ongIdToUpdate = parseInt(req.params.id);
+
+  const loggedInAccountId = req.account.id; 
+
+  try {
+    const ong = await prisma.ong.findUnique({ where: { id: ongIdToUpdate } });
+
+    if (!ong) {
+      return res.status(404).json({ error: 'ONG não encontrada' });
+    }
+
+    if (ong.accountId !== loggedInAccountId) {
+      return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar esta ONG.' });
+    }
+
+    const { name, descricao, endereco } = req.body;
+    const updatedOng = await prisma.ong.update({
+      where: { id: ongIdToUpdate },
+      data: { name, descricao, endereco },
+    });
+
+    res.json({ message: 'ONG atualizada com sucesso!', ong: updatedOng });
+
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao atualizar ONG' });
+  }
+};
+
+
+
 // Login 
 const loginOng = async (req, res) => {
   const { email, password } = req.body;
@@ -104,5 +136,6 @@ module.exports = {
   loginOng,
   getAllOngs,
   getOngById,
-  getAnimaisByOng
+  getAnimaisByOng,
+  updateOng 
 };

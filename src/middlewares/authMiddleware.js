@@ -10,7 +10,7 @@ const authenticateToken = (req, res, next) => {
         return res.sendStatus(401);
     }
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, JWT_SECRET || 'segredo123', (err, user) => {
         if (err) {
             return res.sendStatus(403);
         }

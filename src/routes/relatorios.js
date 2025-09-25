@@ -4,8 +4,8 @@ const relatorioController = require('../controller/relatoriosController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 
 
-router.get('/animais',authenticateToken,  relatorioController.relatorioAnimais);
-router.get('/doacoes', authenticateToken, relatorioController.relatorioDoacoes);
-router.get('/usuarios', authenticateToken, relatorioController.relatorioUsuarios);
+router.get('/animais',authenticateToken, authorizeRole("ADMIN"), relatorioController.relatorioAnimais);
+router.get('/doacoes', authenticateToken,authorizeRole("ADMIN"), relatorioController.relatorioDoacoes);
+router.get('/usuarios', authenticateToken,authorizeRole("ADMIN"), relatorioController.relatorioUsuarios);
 
 module.exports = router;
