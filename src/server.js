@@ -14,6 +14,9 @@ const ongsRoutes = require("./routes/ongs");
 const relatoriosRoutes = require("./routes/relatorios");
 const feedRoutes = require("./routes/feed");
 const reportRoutes = require("./routes/report")
+const adminRoutes = require("./src/routes/protectedRoutes");
+
+
 
 const prisma = new PrismaClient();
 const app = express();
@@ -21,6 +24,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+
+// rotas admin 
+app.use("/api", adminRoutes); 
 // Rotas principais
 app.use("/auth", authRoutes);
 app.use("/usuarios", usuariosRoutes);

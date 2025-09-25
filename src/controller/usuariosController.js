@@ -83,6 +83,8 @@ const deletarUsuario = async (req, res) => {
   }
 };
 
+
+
 module.exports = {
   listarUsuarios,
   criarUsuario,

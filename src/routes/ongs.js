@@ -1,13 +1,20 @@
+// Rota de ONG - CORRETO ✅
 const express = require('express');
 const router = express.Router();
 const ongController = require('../controller/ongsController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 
+// Rotas PÚBLICAS
+router.post('/register', ongController.registerOng);
+router.post('/login', ongController.loginOng);
 
-router.post('/register',authenticateToken,  ongController.registerOng);
-router.post('/login',authenticateToken,  ongController.loginOng);
-router.get('/', authenticateToken, ongController.getAllOngs);
-router.get('/:id', authenticateToken, ongController.getOngById);
-router.get('/:id/animais',authenticateToken, ongController.getAnimaisByOng);
+router.use(authenticateToken);
+
+// Rotas PROTEGIDAS
+router.get('/', ongController.getAllOngs);
+router.get('/:id', ongController.getOngById);
+router.get('/:id/animais', ongController.getAnimaisByOng);
+router.put('/:id', ongController.updateOng); 
+
 
 module.exports = router;

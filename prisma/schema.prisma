@@ -46,7 +46,7 @@ model Publico {
 /// Perfil de ONG — usa o mesmo ID da Account
 model Ong {
   id        Int      @id
-  name      String
+  name      String?
   cnpj      String?
   descricao String?
   endereco  String?
