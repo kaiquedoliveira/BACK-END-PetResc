@@ -1,24 +1,21 @@
 const jwt = require('jsonwebtoken');
-
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 
 const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.split(' ')[1]; // mais limpo
 
-    if (token == null) {
-        return res.sendStatus(401);
+  if (!token) {
+    return res.status(401).json({ message: 'Token não fornecido' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ message: 'Token inválido ou expirado' });
     }
-
-    jwt.verify(token, JWT_SECRET || 'segredo123', (err, user) => {
-        if (err) {
-            return res.sendStatus(403);
-        }
-        req.user = user;
-        next();
-    });
+    req.user = decoded; // aqui vai ter { id, role }
+    next();
+  });
 };
 
-module.exports = {
-    authenticateToken
-};
+module.exports = { authenticateToken };

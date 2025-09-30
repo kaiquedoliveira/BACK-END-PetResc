@@ -5,31 +5,45 @@ const prisma = new PrismaClient();
 
 // cadastro
 const registerOng = async (req, res) => {
-  const { email, password, name, cnpj, descricao, endereco } = req.body;
+    const { email, password, name, cnpj, descricao, endereco } = req.body;
 
-  if (!email || !password || !name || !cnpj) {
-    return res.status(400).json({ error: 'Preencha todos os campos obrigatórios' });
-  }
+    if (!email || !password || !name || !cnpj) {
+        return res.status(400).json({ error: 'Preencha todos os campos obrigatórios' });
+    }
 
-  try {
-    const existingAccount = await prisma.account.findUnique({ where: { email } });
-    if (existingAccount) return res.status(400).json({ error: 'Email já cadastrado' });
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+        const novaConta = await prisma.account.create({
+            data: {
+                email,
+                password: hashedPassword,
+                role: 'ONG',
+                ong: { 
+                    create: {
+                        name,
+                        cnpj,
+                        descricao,
+                        endereco
+                    }
+                }
+            },
+            include: { 
+                ong: true
+            }
+        });
+        
+        delete novaConta.password;
 
-    const account = await prisma.account.create({
-      data: { email, password: hashedPassword, role: 'ONG' }
-    });
+        res.status(201).json({ message: 'ONG cadastrada com sucesso!', account: novaConta });
 
-    const ong = await prisma.ong.create({
-      data: { name, cnpj, descricao, endereco, accountId: account.id }
-    });
-
-    res.status(201).json({ message: 'ONG cadastrada com sucesso!', ong });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao cadastrar ONG' });
-  }
+    } catch (err) {
+        console.error(err);
+        if (err.code === 'P2002') { 
+            return res.status(400).json({ error: 'Email ou CNPJ já está em uso.' });
+        }
+        res.status(500).json({ error: 'Erro ao cadastrar ONG' });
+    }
 };
 
 // Atualizar ONG

@@ -6,7 +6,6 @@ const { PrismaClient } = require("@prisma/client");
 const authRoutes = require("./routes/auth");
 const usuariosRoutes = require("./routes/usuarios");
 const animaisRoutes = require("./routes/animais");
-const adocoesRoutes = require("./routes/adocoes");
 const doacoesRoutes = require("./routes/doacoes");
 const larTemporarioRoutes = require("./routes/larTemporario");
 const ongsRoutes = require("./routes/ongs");

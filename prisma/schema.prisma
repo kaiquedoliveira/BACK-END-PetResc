@@ -20,6 +20,7 @@ model Account {
   // Relaçoes inversas
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
+  animals        Animal[]
 }
 
 /// papeis possíveis
@@ -45,13 +46,12 @@ model Publico {
 
 /// Perfil de ONG — usa o mesmo ID da Account
 model Ong {
-  id        Int      @id
+  id        Int     @id
   name      String?
   cnpj      String?
   descricao String?
   endereco  String?
-  account   Account  @relation(fields: [id], references: [id], onDelete: Cascade)
-  animals   Animal[] @relation("AnimalOng")
+  account   Account @relation(fields: [id], references: [id], onDelete: Cascade)
 
   // Relações inversas
   doacoes        Doacao[]
@@ -71,12 +71,13 @@ model Animal {
   photoURL        String?
   corPredominante String?
 
-  createdAt       DateTime      @default(now())   
-  updatedAt       DateTime      @updatedAt       
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   ficha Ficha? @relation("AnimalFicha")
-  ongId Int
-  ong   Ong    @relation("AnimalOng", fields: [ongId], references: [id])
+
+  accountId Int
+  account   Account @relation(fields: [accountId], references: [id])
 
   denuncias      Denuncia[]      @relation("AnimalDenuncias")
   larTemporarios LarTemporario[] // relação inversa
@@ -176,12 +177,13 @@ model Denuncia {
   localizacao String
   anonimo     Boolean  @default(false)
   contato     String
-  animalId    Int
-  animal      Animal   @relation("AnimalDenuncias", fields: [animalId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   Int?
-
+  animalId Int?
+  
+  animal   Animal? @relation("AnimalDenuncias", fields: [animalId], references: [id])
+  
   @@map("denuncias")
 }
 
