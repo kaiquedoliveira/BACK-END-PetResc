@@ -3,21 +3,43 @@ const prisma = new PrismaClient();
 
 // CREATE
 const criarReport = async (req, res) => {
-  const { animalId, usuarioId, descricao } = req.body;
+    const usuarioId = req.account.id; 
 
-  if (!animalId || !usuarioId || !descricao) {
-    return res.status(400).json({ error: "Preencha todos os campos obrigatórios" });
-  }
+    const { animalId, descricao, endereco } = req.body; 
 
-  try {
-    const report = await prisma.report.create({
-      data: { animalId, usuarioId, descricao }
-    });
-    res.status(201).json({ message: "Denúncia registrada com sucesso", report });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao registrar denúncia" });
-  }
+    if (!descricao) {
+        return res.status(400).json({ error: "O campo 'descricao' é obrigatório" });
+    }
+
+    try {
+        const data = {
+            descricao,
+            usuario: { 
+                connect: {
+                    id: usuarioId
+                }
+            }
+        };
+
+        if (animalId) {
+            data.animal = {
+                connect: {
+                    id: parseInt(animalId)
+                }
+            };
+        } else if (!endereco) {
+             return res.status(400).json({ error: "Para denúncias de animais não cadastrados, o endereço é obrigatório." });
+        } else {
+            data.endereco = endereco; // Salva o endereço na denúncia
+        }
+
+        const report = await prisma.report.create({ data });
+        
+        res.status(201).json({ message: "Denúncia registrada com sucesso", report });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao registrar denúncia" });
+    }
 };
 
 // Listardenuncias
@@ -54,15 +76,31 @@ const atualizarReport = async (req, res) => {
 
 // DELETE
 const apagarReport = async (req, res) => {
-  const { id } = req.params;
+    const reportId = parseInt(req.params.id);
+    const usuarioLogadoId = req.account.id;
 
-  try {
-    await prisma.report.delete({ where: { id: parseInt(id) } });
-    res.json({ message: "Denúncia apagada com sucesso" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao apagar denúncia" });
-  }
+    try {
+        // Primeiro, busca a denúncia no banco
+        const report = await prisma.report.findUnique({
+            where: { id: reportId }
+        });
+
+        if (!report) {
+            return res.status(404).json({ error: "Denúncia não encontrada" });
+        }
+
+        // VERIFICA SE O USUÁRIO LOGADO É O DONO DA DENÚNCIA
+        if (report.usuarioId !== usuarioLogadoId) {
+            return res.status(403).json({ error: "Acesso negado. Você não tem permissão para apagar esta denúncia." });
+        }
+
+        // Se passou na verificação, pode apagar
+        await prisma.report.delete({ where: { id: reportId } });
+        res.json({ message: "Denúncia apagada com sucesso" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao apagar denúncia" });
+    }
 };
 
 module.exports = {
