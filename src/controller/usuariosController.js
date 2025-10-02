@@ -100,9 +100,13 @@ const registrarUsuarioPublico = async (req, res) => {
                         nome: name,
                         cpf: cpf 
                 }
+               }
             },
-            include: { publico: true }
+            include: {  publico: true 
+            }
         });
+
+        
         delete novaConta.password;
         res.status(201).json(novaConta);
     } catch (err) {
