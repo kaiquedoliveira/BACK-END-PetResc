@@ -16,9 +16,12 @@ const listarAnimais = async (req, res) => {
         ]
       },
       include: {
+          account: {
+
         ong: { select: { name: true, account: { select: { email: true } } } },
         publico: { select: { name: true, account: { select: { email: true } } } }
       }
+     }
     });
     res.json(animais);
   } catch (err) {
@@ -35,9 +38,12 @@ const buscarAnimalPorId = async (req, res) => {
     const animal = await prisma.animal.findUnique({
       where: { id: parseInt(id) },
       include: {
+         account: {
+
         ong: { select: { name: true, descricao: true, endereco: true, account: { select: { email: true } } } },
         publico: { select: { name: true, account: { select: { email: true } } } }
       }
+     }
     });
 
     if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
@@ -84,9 +90,8 @@ const criarAnimal = async (req, res) => {
         sexo,
         descricao,
         photoURL,
-        ...donoAnimal
-      },
-      include: { ong: true, publico: true }
+        accountId: usuarioLogado.id
+              },
     });
 
     res.status(201).json(novoAnimal);
@@ -98,79 +103,50 @@ const criarAnimal = async (req, res) => {
 
 // Atualiza os dados de um animal
 const atualizarAnimal = async (req, res) => {
-  const { id } = req.params;
-  const usuarioLogado = req.account;
-  const dataToUpdate = req.body;
+    const { id } = req.params;
+    const usuarioLogado = req.account;
+    const dataToUpdate = req.body;
 
-  try {
-    const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
-    if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
+    try {
+        const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
+        if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
 
-    let temPermissao = false;
+        if (animal.accountId !== usuarioLogado.id && usuarioLogado.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar este animal.' });
+        }
 
-    if (usuarioLogado.role === 'ADMIN') {
-      temPermissao = true;
-    } else if (usuarioLogado.role === 'ONG') {
-      const ong = await prisma.ong.findUnique({ where: { accountId: usuarioLogado.id } });
-      if (ong && animal.ongId === ong.id) temPermissao = true;
-    } else if (usuarioLogado.role === 'PUBLICO') {
-      const publico = await prisma.publico.findUnique({ where: { accountId: usuarioLogado.id } });
-      if (publico && animal.publicoId === publico.id) temPermissao = true;
+        if (dataToUpdate.idade) dataToUpdate.idade = parseInt(dataToUpdate.idade);
+
+        const animalAtualizado = await prisma.animal.update({
+            where: { id: parseInt(id) },
+            data: dataToUpdate,
+        });
+        res.json(animalAtualizado);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao atualizar animal.' });
     }
-
-    if (!temPermissao) {
-      return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar este animal.' });
-    }
-
-    if (dataToUpdate.idade) dataToUpdate.idade = parseInt(dataToUpdate.idade);
-
-    const animalAtualizado = await prisma.animal.update({
-      where: { id: parseInt(id) },
-      data: dataToUpdate,
-      include: { ong: true, publico: true }
-    });
-
-    res.json(animalAtualizado);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao atualizar animal.' });
-  }
 };
-
 // Deleta um animal
 const deletarAnimal = async (req, res) => {
-  const { id } = req.params;
-  const usuarioLogado = req.account;
+    const { id } = req.params;
+    const usuarioLogado = req.account;
 
-  try {
-    const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
-    if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
+    try {
+        const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
+        if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
 
-    let temPermissao = false;
+        if (animal.accountId !== usuarioLogado.id && usuarioLogado.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Acesso negado. Você não pode deletar este animal.' });
+        }
 
-    if (usuarioLogado.role === 'ADMIN') {
-      temPermissao = true;
-    } else if (usuarioLogado.role === 'ONG') {
-      const ong = await prisma.ong.findUnique({ where: { accountId: usuarioLogado.id } });
-      if (ong && animal.ongId === ong.id) temPermissao = true;
-    } else if (usuarioLogado.role === 'PUBLICO') {
-      const publico = await prisma.publico.findUnique({ where: { accountId: usuarioLogado.id } });
-      if (publico && animal.publicoId === publico.id) temPermissao = true;
+        await prisma.animal.delete({ where: { id: parseInt(id) } });
+        res.status(200).json({ message: 'Animal removido com sucesso.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao deletar animal.' });
     }
-
-    if (!temPermissao) {
-      return res.status(403).json({ error: 'Acesso negado. Você não pode deletar este animal.' });
-    }
-
-    await prisma.animal.delete({ where: { id: parseInt(id) } });
-
-    res.status(200).json({ message: 'Animal removido com sucesso.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao deletar animal.' });
-  }
 };
-
 module.exports = {
   listarAnimais,
   buscarAnimalPorId,
