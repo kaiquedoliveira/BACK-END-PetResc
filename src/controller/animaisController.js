@@ -15,13 +15,15 @@ const listarAnimais = async (req, res) => {
           sexo ? { sexo: { equals: sexo } } : {}
         ]
       },
-      include: {
-          account: {
-
-        ong: { select: { name: true, account: { select: { email: true } } } },
-        publico: { select: { name: true, account: { select: { email: true } } } }
-      }
-     }
+        include: {
+                account: {
+                    include: {
+                        publico: true,
+                        ong: true,
+                        admin: true
+                    }
+                }
+            }
     });
     res.json(animais);
   } catch (err) {
@@ -38,12 +40,14 @@ const buscarAnimalPorId = async (req, res) => {
     const animal = await prisma.animal.findUnique({
       where: { id: parseInt(id) },
       include: {
-         account: {
-
-        ong: { select: { name: true, descricao: true, endereco: true, account: { select: { email: true } } } },
-        publico: { select: { name: true, account: { select: { email: true } } } }
-      }
-     }
+                account: {
+                    include: {
+                        publico: true,
+                        ong: true,
+                        admin: true
+                    }
+                }
+            }
     });
 
     if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
@@ -65,23 +69,9 @@ const criarAnimal = async (req, res) => {
   }
 
   try {
-    let donoAnimal = {};
-
-    if (usuarioLogado.role === 'ONG') {
-      const ong = await prisma.ong.findUnique({ where: { accountId: usuarioLogado.id } });
-      if (!ong) return res.status(403).json({ error: 'ONG não encontrada.' });
-      donoAnimal.ongId = ong.id;
-    } else if (usuarioLogado.role === 'PUBLICO') {
-      const publico = await prisma.publico.findUnique({ where: { accountId: usuarioLogado.id } });
-      if (!publico) return res.status(403).json({ error: 'Usuário público não encontrado.' });
-      donoAnimal.publicoId = publico.id;
-    } else if (usuarioLogado.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Você não tem permissão para cadastrar animais.' });
-    }
-
     const novoAnimal = await prisma.animal.create({
       data: {
-        name,
+        nome: name,
         especie,
         raca,
         idade: idade ? parseInt(idade) : null,
@@ -105,7 +95,8 @@ const criarAnimal = async (req, res) => {
 const atualizarAnimal = async (req, res) => {
     const { id } = req.params;
     const usuarioLogado = req.account;
-    const dataToUpdate = req.body;
+    const { name, ...dataToUpdate } = req.body;
+
 
     try {
         const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
@@ -113,6 +104,9 @@ const atualizarAnimal = async (req, res) => {
 
         if (animal.accountId !== usuarioLogado.id && usuarioLogado.role !== 'ADMIN') {
             return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar este animal.' });
+        }
+          if (name) {
+            dataToUpdate.nome = name;
         }
 
         if (dataToUpdate.idade) dataToUpdate.idade = parseInt(dataToUpdate.idade);
