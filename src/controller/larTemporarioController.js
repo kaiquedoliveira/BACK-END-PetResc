@@ -3,8 +3,18 @@ const prisma = new PrismaClient();
 
 // GET padrao
 const getAll = async (req, res) => {
+  const usuarioLogado = req.user;
+
   try {
-    const lares = await prisma.larTemporario.findMany({
+    let  whereClause = {};
+    if ( usuarioLogado.role === 'PUBLICO') {
+      whereClause = { usuarioId: usuarioLogado.id };
+    } else if (usuarioLogado.role === 'ONG') {
+      whereClause = { ongId: usuarioLogado.id };
+
+    }
+      const lares = await prisma.larTemporario.findMany({
+      where: whereClause,
       include: { usuario: true, ong: true, animal: true }
     });
     res.json(lares);
