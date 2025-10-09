@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 // GET padrao
 const getAll = async (req, res) => {
-  const usuarioLogado = req.user;
+ const usuarioLogado = req.account;
 
   try {
     let  whereClause = {};
@@ -42,11 +42,14 @@ const getById = async (req, res) => {
 
 // POST 
 const create = async (req, res) => {
-      const usuarioLogado = req.user; 
-      const { animalId, ongId, ...formData } = req.body;
+   const usuarioLogado = req.account; 
+  const { animalId, ongId, ...formData } = req.body;
 
 
         try {
+            const usuarioLogado = req.account; 
+            const { animalId, ongId, ...formData } = req.body;  
+
            if (!formData.nomeCompleto || !formData.cpf) {
             return res.status(400).json({ error: 'Nome completo e CPF são obrigatórios.' });
         }
@@ -88,30 +91,41 @@ const create = async (req, res) => {
 
 // PUT por id
 const updateStatus = async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-  try {
-    const larAtualizado = await prisma.larTemporario.update({
-      where: { id: parseInt(id) },
-      data: { status }
-    });
-    res.json(larAtualizado);
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao atualizar status do lar temporário' });
-  }
+    const { id } = req.params;
+    const { status } = req.body;
+    const usuarioLogado = req.account;
+    try {
+        const lar = await prisma.larTemporario.findUnique({ where: { id: parseInt(id) } });
+        if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
+        
+        if (usuarioLogado.role !== 'ADMIN' && lar.ongId !== usuarioLogado.id) {
+            return res.status(403).json({ error: 'Acesso negado. Permissão insuficiente.' });
+        }
+        
+        const larAtualizado = await prisma.larTemporario.update({ where: { id: parseInt(id) }, data: { status } });
+        res.json(larAtualizado);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao atualizar status' });
+    }
 };
 
 // DELETE por id
 const remove = async (req, res) => {
-  const { id } = req.params;
-  try {
-    await prisma.larTemporario.delete({
-      where: { id: parseInt(id) }
-    });
-    res.status(204).send();
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao cancelar lar temporário' });
-  }
+    const { id } = req.params;
+    const usuarioLogado = req.account; 
+    try {
+        const lar = await prisma.larTemporario.findUnique({ where: { id: parseInt(id) } });
+        if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
+
+        if (usuarioLogado.role !== 'ADMIN' && lar.usuarioId !== usuarioLogado.id && lar.ongId !== usuarioLogado.id) {
+             return res.status(403).json({ error: 'Acesso negado.' });
+        }
+
+        await prisma.larTemporario.delete({ where: { id: parseInt(id) } });
+        res.status(204).send();
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao cancelar lar temporário' });
+    }
 };
 
 module.exports = {
