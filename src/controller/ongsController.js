@@ -133,10 +133,10 @@ const getAnimaisByOng = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const animais = await prisma.animal.findMany({
-      where: { ongId: parseInt(id) },
-      include: { ong: { include: { account: true } } }
+     const animais = await prisma.animal.findMany({
+      where: { accountId: parseInt(id) }, 
     });
+    
 
     if (animais.length === 0) return res.status(404).json({ error: 'Nenhum animal encontrado para essa ONG' });
     res.json(animais);
