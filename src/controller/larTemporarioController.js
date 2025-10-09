@@ -42,36 +42,44 @@ const getById = async (req, res) => {
 
 // POST 
 const create = async (req, res) => {
-  const {
-    usuarioId, ongId, animalId, nomeCompleto, cpf, dataNascimento,
-    telefone, email, endereco, tipoMoradia, possuiQuintal, portesAceitos,
-    especiesAceitas, possuiAnimais, experiencia, dispoVeterinario,
-    podeFornecerRacao, precisaAjudaONG, periodoDisponibilidade
-  } = req.body;
-  try {
-    const novoLar = await prisma.larTemporario.create({
-      data: {
-        usuarioId: parseInt(usuarioId),
-        ongId: parseInt(ongId),
-        animalId: animalId ? parseInt(animalId) : null,
-        nomeCompleto,
-        cpf,
-        dataNascimento: new Date(dataNascimento),
-        telefone,
-        email,
-        endereco,
-        tipoMoradia,
-        possuiQuintal,
-        portesAceitos,
-        especiesAceitas,
-        possuiAnimais,
-        experiencia,
-        dispoVeterinario,
-        podeFornecerRacao,
-        precisaAjudaONG,
-        periodoDisponibilidade
-      }
-    });
+      const usuarioLogado = req.user; 
+      const { animalId, ongId, ...formData } = req.body;
+
+
+        try {
+           if (!formData.nomeCompleto || !formData.cpf) {
+            return res.status(400).json({ error: 'Nome completo e CPF são obrigatórios.' });
+        }
+              let ongIdFinal;
+
+              if (animalId) { 
+                  const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
+            
+            if (!animal) {
+                return res.status(404).json({ error: 'Animal especificado não foi encontrado.' });
+            }
+
+            ongIdFinal = animal.accountId; 
+        } else if (ongId) {
+
+           ongIdFinal = parseInt(ongId);
+        } else {
+            return res.status(400).json({ error: 'É necessário especificar um animalId ou uma ongId.' });
+        }
+
+           const novoLar = await prisma.larTemporario.create({
+            data: {
+                ...formData, 
+                dataNascimento: new Date(formData.dataNascimento),
+                
+                usuarioId: usuarioLogado.id, 
+                ongId: ongIdFinal, 
+                animalId: animalId ? parseInt(animalId) : null,
+            }
+        });
+
+        res.status(201).json(novoLar);
+  
     res.status(201).json(novoLar);
   } catch (err) {
     res.status(500).json({ error: 'Erro ao registrar interesse em lar temporário' });
