@@ -17,11 +17,11 @@ model Account {
   ong       Ong?
   publico   Publico?
 
-  // Relaçoes inversas
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
   animals        Animal[]
-  denuncias      Denuncia[] // <--- ADICIONE ESTA LINHA
+  pedidosAdocao PedidoAdocao[] @relation("CandidatoPedidos")
+
 }
 /// papeis possíveis
 enum Role {
@@ -81,8 +81,9 @@ model Animal {
   accountId Int
   account   Account @relation(fields: [accountId], references: [id])
 
-  denuncias      Denuncia[]      @relation("AnimalDenuncias")
   larTemporarios LarTemporario[] // relação inversa
+  pedidosAdocao PedidoAdocao[] @relation("AnimalPedidos")
+
 }
 
 model Doacao {
@@ -173,28 +174,27 @@ enum StatusAdocao {
   SOBRE_TRATAMENTO
 }
 
-model Denuncia {
-  id          Int      @id @default(autoincrement())
-  descricao   String
-  localizacao String
-  anonimo     Boolean  @default(false)
-  contato     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   Int?
-  animalId Int?
-  
-  animal   Animal? @relation("AnimalDenuncias", fields: [animalId], references: [id])
-  autor        Account? @relation(fields: [createdBy], references: [id])
 
-  
-  @@map("denuncias")
+
+model PedidoAdocao {
+  id          Int          @id @default(autoincrement())
+  status      StatusPedido @default(PENDENTE) // Usando nosso Enum!
+  dataPedido  DateTime     @default(now())
+
+  animalId    Int
+  animal      Animal       @relation("AnimalPedidos", fields: [animalId], references: [id])
+
+  // Relação com a Conta do usuário que fez o pedido (o candidato)
+  candidatoId Int
+  candidato   Account      @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
+
+  // Mapeia o nome da tabela no banco para "pedidos_adocao" (boa prática)
+  @@map("pedidos_adocao")
 }
 
-/// Estados possiveis para denuncias
-enum StatusDenuncia {
+enum StatusPedido {
   PENDENTE
-  EM_ANALISE
-  RESOLVIDA
-  REJEITADA
+  APROVADO
+  RECUSADO
 }
+
