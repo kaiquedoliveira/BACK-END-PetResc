@@ -26,7 +26,7 @@ app.use("/api", adminRoutes);
 
 // Rotas principais
 app.use("/auth", authRoutes);
-app.use("/usuarios", usuariosRoutes);
+app.use("/usuarios", usuariosRoutes);-
 app.use("/animais", animaisRoutes);
 app.use("/doacoes", doacoesRoutes);
 app.use("/larTemporario", larTemporarioRoutes);
