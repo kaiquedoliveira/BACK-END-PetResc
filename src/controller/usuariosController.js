@@ -80,7 +80,7 @@ const deletarUsuario = async (req, res) => {
         res.status(500).json({ error: 'Erro ao remover usuário' });
     }
 };
-
+//cadastro pubico
 const registrarUsuarioPublico = async (req, res) => {
     const { email, password, name, cpf } = req.body; 
 

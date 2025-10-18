@@ -59,7 +59,7 @@ const updateOng = async (req, res) => {
       return res.status(404).json({ error: 'ONG não encontrada' });
     }
 
-    if (ong.accountId !== loggedInAccountId) {
+    if (ong.id !== loggedInAccountId) {
       return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar esta ONG.' });
     }
 
@@ -101,7 +101,7 @@ const loginOng = async (req, res) => {
   }
 };
 
-// PUT
+// 
 const getAllOngs = async (req, res) => {
   try {
     const ongs = await prisma.ong.findMany({ include: { account: true } });
@@ -133,10 +133,10 @@ const getAnimaisByOng = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const animais = await prisma.animal.findMany({
-      where: { ongId: parseInt(id) },
-      include: { ong: { include: { account: true } } }
+     const animais = await prisma.animal.findMany({
+      where: { accountId: parseInt(id) }, 
     });
+    
 
     if (animais.length === 0) return res.status(404).json({ error: 'Nenhum animal encontrado para essa ONG' });
     res.json(animais);

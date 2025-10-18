@@ -5,12 +5,10 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 
-//  cadastro
 exports.register = async (req, res) => {
-  const { email, password, role, name, cnpj, descricao, endereco } = req.body;
+  const { email, password, role, name, cnpj, descricao, endereco, cpf } = req.body;
 
   try {
-    // Verifica se email jaa existe
     const existingUser = await prisma.account.findUnique({ where: { email } });
     if (existingUser) return res.status(400).json({ error: 'E-mail já cadastrado.' });
 
@@ -21,16 +19,15 @@ exports.register = async (req, res) => {
         email,
         password: hashedPassword,
         role,
-        ...(role === 'ADMIN' && { admin: { create: { name } } }),
-        ...(role === 'ONG' && { ong: { create: { name, cnpj, descricao, endereco } } }),
-        ...(role === 'PUBLICO' && { publico: { create: { name } } }),
+        // CORREÇÃO AQUI: Mapeando 'name' (do frontend) para 'nome' (do banco)
+        ...(role === 'ADMIN' && { admin: { create: { nome: name } } }),
+        ...(role === 'ONG' && { ong: { create: { nome: name, cnpj, descricao, endereco } } }),
+        ...(role === 'PUBLICO' && { publico: { create: { nome: name, cpf: cpf } } }),
       },
       include: { admin: true, ong: true, publico: true },
     });
-
     
     const { password: _, ...usuarioSemSenha } = novaConta;
-
     res.status(201).json(usuarioSemSenha);
   } catch (err) {
     console.error(err);
@@ -38,7 +35,6 @@ exports.register = async (req, res) => {
   }
 };
 
-//  LOGIN 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -53,15 +49,15 @@ exports.login = async (req, res) => {
     const passwordMatch = await bcrypt.compare(password, usuario.password);
     if (!passwordMatch) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
 
+    const nomeDoUsuario = usuario.publico?.nome || usuario.ong?.nome || usuario.admin?.nome || 'Usuário';
+
     const token = jwt.sign(
-      { id: usuario.id, role: usuario.role, name: usuario.name },
+      { id: usuario.id, role: usuario.role, name: nomeDoUsuario },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
-
     
     const { password: _, ...usuarioSemSenha } = usuario;
-
     res.json({ token, usuario: usuarioSemSenha });
   } catch (err) {
     console.error(err);
@@ -69,7 +65,6 @@ exports.login = async (req, res) => {
   }
 };
 
-//  ME 
 exports.me = async (req, res) => {
   try {
     const usuario = await prisma.account.findUnique({
@@ -78,9 +73,7 @@ exports.me = async (req, res) => {
     });
 
     if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado.' });
-
     const { password: _, ...usuarioSemSenha } = usuario;
-
     res.json(usuarioSemSenha);
   } catch (err) {
     console.error(err);

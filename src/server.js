@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+const app = express();
 
 // Import de rotas
 const authRoutes = require("./routes/auth");
@@ -12,11 +14,11 @@ const ongsRoutes = require("./routes/ongs");
 const relatoriosRoutes = require("./routes/relatorios");
 const feedRoutes = require("./routes/feed");
 const reportRoutes = require("./routes/report");
+const adocoesRoutes = require("./routes/adocoes")
 
 const adminRoutes = require("./routes/protectedRoutes");
 
-const prisma = new PrismaClient();
-const app = express();
+
 
 app.use(cors());
 app.use(express.json());
@@ -26,7 +28,7 @@ app.use("/api", adminRoutes);
 
 // Rotas principais
 app.use("/auth", authRoutes);
-app.use("/usuarios", usuariosRoutes);
+app.use("/usuarios", usuariosRoutes);-
 app.use("/animais", animaisRoutes);
 app.use("/doacoes", doacoesRoutes);
 app.use("/larTemporario", larTemporarioRoutes);
@@ -34,13 +36,14 @@ app.use("/ongs", ongsRoutes);
 app.use("/relatorios", relatoriosRoutes);
 app.use("/feed", feedRoutes);
 app.use("/report", reportRoutes);
+app.use("/adocoes", adocoesRoutes)
 
 app.get("/api", (req, res) => {
   res.json({ message: "API rodando corretamente!" });
 });
 
 app.listen(3000, () => {
-  console.log("Servidor rodando na porta 3000 🚀");
+  console.log("Servidor rodando na porta 3000 ");
 
   app.use((err, req, res, next) => {
   console.error("UM ERRO OCORREU:", err.stack);
