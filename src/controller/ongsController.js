@@ -21,7 +21,7 @@ const registerOng = async (req, res) => {
                 role: 'ONG',
                 ong: { 
                     create: {
-                        name,
+                        nome: name,
                         cnpj,
                         descricao,
                         endereco

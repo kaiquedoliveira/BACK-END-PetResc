@@ -7,56 +7,60 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// login usuario
+// --- O MODELO ACCOUNT FINAL E SIMPLIFICADO ---
 model Account {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   role      Role
+
+  // DADOS COMUNS DO USUÁRIO CENTRALIZADOS AQUI:
+  nome      String   // Seguindo a SUA padronização
+  cpf       String   @unique
+  telefone  String?
+
+  // Relações com perfis que têm dados EXCLUSIVOS
   admin     Admin?
   ong       Ong?
-  publico   Publico?
+  publico   Publico? // Mantemos a relação, mas o 'Publico' ficará mais simples
 
+  // Relações com outras partes do sistema
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
   animals        Animal[]
-  pedidosAdocao PedidoAdocao[] @relation("CandidatoPedidos")
-
+  pedidosAdocao  PedidoAdocao[] @relation("CandidatoPedidos")
 }
-/// papeis possíveis
+
 enum Role {
   ADMIN
   ONG
   PUBLICO
 }
 
-/// Perfil administrador — usa o mesmo ID da account
 model Admin {
   id      Int     @id
+  // 'nome' agora está no Account, mas podemos manter aqui se admin tiver um nome diferente
   nome    String
   account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
-/// Perfil de público geral — usa o mesmo ID da Account
+// O MODELO PUBLICO FICOU MUITO MAIS SIMPLES
+// Ele agora serve apenas para "marcar" a conta, sem dados duplicados.
 model Publico {
   id      Int     @id
-  nome    String
-  cpf     String  @unique 
-
+  // Os campos nome, cpf e telefone foram MOVIDOS para o Account
   account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
-/// Perfil de ONG — usa o mesmo ID da Account
 model Ong {
   id        Int     @id
-  name      String?
+  nome      String? // Seguindo a SUA padronização
   cnpj      String?
   descricao String?
   endereco  String?
   account   Account @relation(fields: [id], references: [id], onDelete: Cascade)
 
-  // Relações inversas
-  doacoes        Doacao[]
+  doacoes       Doacao[]
   larTemporarios LarTemporario[]
 }
 
