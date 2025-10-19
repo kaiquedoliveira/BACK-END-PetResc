@@ -59,5 +59,4 @@ app.listen(PORT, () => {
   
 
   
-  testConnection();
 });
