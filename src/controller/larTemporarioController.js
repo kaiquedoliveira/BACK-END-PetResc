@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 // GET padrao
 const getAll = async (req, res) => {
- const usuarioLogado = req.account;
+ const usuarioLogado = req.user;
 
   try {
     let  whereClause = {};

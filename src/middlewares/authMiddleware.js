@@ -3,18 +3,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Formato "Bearer TOKEN"
+  const token = authHeader && authHeader.split(' ')[1]; 
   if (!token) {
     return res.status(401).json({ message: 'Token não fornecido' });
   }
 
   try {
-        // Isso garante que a execução PARE AQUI até que o token seja verificado.
         const decodedUser = jwt.verify(token, JWT_SECRET);
 
-        req.user = decodedUser; // Adicionamos os dados do usuário à requisição.
+        req.user = decodedUser; 
 
-        //Só depois de tudo certo, chamamos next()
+        
         next(); 
 
     } catch (err) {
