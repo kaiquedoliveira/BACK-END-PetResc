@@ -3,17 +3,29 @@ const prisma = new PrismaClient();
 
 // GET padrão
 const getFeed = async (req, res) => {
+
+  const { especie, porte, sexo } = req.query;
   try {
-    const animais = await prisma.animal.findMany({
-      where: {
-        status: StatusAdocao.DISPONIVEL, 
-      },
+    const whereClause = {
+      status: StatusAdocao.DISPONIVEL, // Sempre buscamos apenas animais disponíveis
+      ...(especie && { especie: { contains: especie, mode: 'insensitive' } }),
+      ...(porte && { porte: { contains: porte, mode: 'insensitive' } }),
+      ...(sexo && { sexo: { equals: sexo } }),
+    }; 
+      const animais = await prisma.animal.findMany({
+      where: whereClause,
+
       include: {
-        ong: {
+        account: {
           select: {
-            id: true,
-            name: true,
-            endereco: true,
+            // Apenas os dados da ONG nos interessam para o feed
+            ong: {
+              select: {
+                id: true,
+                nome: true, 
+                endereco: true,
+              },
+            },
           },
         },
       },
@@ -22,39 +34,23 @@ const getFeed = async (req, res) => {
       },
     });
 
-    res.json(animais);
+    const feedFormatado = animais.map(animal => {
+      const ongInfo = animal.account?.ong || null;
+
+      const { account, ...animalData } = animal;
+      return {
+        ...animalData,
+        ong: ongInfo,
+      };
+    });
+
+    res.json(feedFormatado);
   } catch (error) {
     console.error("Erro ao carregar feed:", error);
     res.status(500).json({ error: "Erro ao carregar feed de animais" });
   }
 };
 
-// GET com filtros
-const getFeedComFiltro = async (req, res) => {
-  try {
-    const { especie, porte, idade } = req.query;
-
-    const animais = await prisma.animal.findMany({
-      where: {
-        status: StatusAdocao.DISPONIVEL,
-        ...(especie && { especie }),
-        ...(porte && { porte }),
-        ...(idade && { idade }),
-      },
-      include: {
-        ong: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    res.json(animais);
-  } catch (error) {
-    console.error("Erro ao carregar feed filtrado:", error);
-    res.status(500).json({ error: "Erro ao carregar feed filtrado" });
-  }
-};
-
 module.exports = {
   getFeed,
-  getFeedComFiltro,
 };

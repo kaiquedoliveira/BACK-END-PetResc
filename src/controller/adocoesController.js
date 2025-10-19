@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 const criarPedido = async (req, res) => {
     const { animalId } = req.body;
-    // O ID do candidato (o usuário logado) vem do nosso token JWT (adicionado pelo middleware)
+  
     const candidatoId = req.user.id; 
 
     if (!animalId) {
@@ -36,7 +36,7 @@ const criarPedido = async (req, res) => {
             data: {
                 animalId: animalId,
                 candidatoId: candidatoId,
-                // O status padrão já é 'PENDENTE' (definido no schema.prisma)
+               
             },
             include: { // Inclui os detalhes do animal na resposta
                 animal: true,
@@ -76,7 +76,7 @@ const listarMeusPedidos = async (req, res) => {
 
 
 const listarPedidosParaGerenciamento = async (req, res) => {
-    // ... (lógica do whereClause continua a mesma)
+   
     try {
 
         let whereClause = {};
@@ -84,20 +84,18 @@ const listarPedidosParaGerenciamento = async (req, res) => {
             where: whereClause,
             include: {
                 animal: true,
-                // A CONSULTA FICOU MUITO MAIS SIMPLES!
-                // Agora podemos pegar os dados diretamente do 'candidato' (Account)
+                
                 candidato: {
                     select: {
                         id: true,
                         email: true,
-                        nome: true,  // <-- Direto do Account
-                        telefone: true  // <-- Direto do Account
+                        nome: true,  
+                        telefone: true  
                     }
                 }
             },
             orderBy: { dataPedido: 'desc' }
         });
-        // Não precisamos mais do bloco de formatação!
         res.status(200).json(pedidos);
     } catch (error) {
         console.error("Erro ao listar pedidos para gerenciamento:", error);
@@ -107,8 +105,8 @@ const listarPedidosParaGerenciamento = async (req, res) => {
 
 const atualizarStatusPedido = async (req, res) => {
     const { id: pedidoId } = req.params;
-    const { status } = req.body; // O novo status: 'APROVADO' ou 'RECUSADO'
-    const { id: gestorId, role } = req.user; // Gestor = Admin ou ONG
+    const { status } = req.body; 
+    const { id: gestorId, role } = req.user; 
 
     if (!status || !['APROVADO', 'RECUSADO'].includes(status)) {
         return res.status(400).json({ error: "Status inválido. Use 'APROVADO' ou 'RECUSADO'." });
@@ -124,7 +122,7 @@ const atualizarStatusPedido = async (req, res) => {
             return res.status(404).json({ error: 'Pedido de adoção não encontrado.' });
         }
 
-        // Apenas o Admin ou a ONG dona do animal podem alterar o status.
+        
         if (role !== 'ADMIN' && pedido.animal.accountId !== gestorId) {
             return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para gerenciar este pedido.' });
         }
@@ -133,8 +131,7 @@ const atualizarStatusPedido = async (req, res) => {
             return res.status(400).json({ error: `Este pedido já foi ${pedido.status.toLowerCase()}.`})
         }
 
-        //  Mudar o status do PEDIDO.
-        //  Mudar o status do ANIMAL para 'ADOTADO'.
+   
         if (status === 'APROVADO') {
             const [pedidoAtualizado, animalAtualizado] = await prisma.$transaction([
                 prisma.pedidoAdocao.update({
@@ -147,7 +144,7 @@ const atualizarStatusPedido = async (req, res) => {
                 })
             ]);
             res.status(200).json({ message: 'Pedido aprovado com sucesso!', pedido: pedidoAtualizado });
-        } else { // 'RECUSADO', apenas atualizamos o pedido.
+        } else { 
             const pedidoAtualizado = await prisma.pedidoAdocao.update({
                 where: { id: parseInt(pedidoId) },
                 data: { status: 'RECUSADO' }

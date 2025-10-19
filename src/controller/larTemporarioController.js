@@ -15,7 +15,15 @@ const getAll = async (req, res) => {
     }
       const lares = await prisma.larTemporario.findMany({
       where: whereClause,
-      include: { usuario: true, ong: true, animal: true }
+      include: {
+    animal: true, 
+    usuario: { 
+        select: { id: true, nome: true, email: true, telefone: true }
+    },
+    ong: { 
+        select: { id: true, nome: true }
+    }
+}
     });
     res.json(lares);
   } catch (err) {
@@ -29,7 +37,15 @@ const getById = async (req, res) => {
   try {
     const lar = await prisma.larTemporario.findUnique({
       where: { id: parseInt(id) },
-      include: { usuario: true, ong: true, animal: true }
+     include: {
+    animal: true, 
+    usuario: { 
+        select: { id: true, nome: true, email: true, telefone: true }
+    },
+    ong: { 
+        select: { id: true, nome: true }
+    }
+}
     });
     if (!lar) {
       return res.status(404).json({ error: 'Registro não encontrado' });
@@ -42,58 +58,59 @@ const getById = async (req, res) => {
 
 // POST 
 const create = async (req, res) => {
-   const usuarioLogado = req.account; 
-  const { animalId, ongId, ...formData } = req.body;
+    const usuarioLogado = req.user;
+    const { animalId, ongId, ...dadosDoFormulario } = req.body;
 
+    try {
+        // Usamos o ID do crachá (token) para pegar todos os dados do Account no banco.
+        const fullUserAccount = await prisma.account.findUnique({
+            where: { id: usuarioLogado.id },
+        });
 
-        try {
-            const usuarioLogado = req.account; 
-            const { animalId, ongId, ...formData } = req.body;  
-
-           if (!formData.nomeCompleto || !formData.cpf) {
-            return res.status(400).json({ error: 'Nome completo e CPF são obrigatórios.' });
+        if (!fullUserAccount) {
+            return res.status(404).json({ error: 'Conta de usuário não encontrada.' });
         }
-              let ongIdFinal;
 
-              if (animalId) { 
-                  const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
-            
-            if (!animal) {
-                return res.status(404).json({ error: 'Animal especificado não foi encontrado.' });
-            }
+        if (!dadosDoFormulario.periodoDisponibilidade) {
+            return res.status(400).json({ error: 'O período de disponibilidade é obrigatório.' });
+        }
 
-            ongIdFinal = animal.accountId; 
+        let ongIdFinal;
+        if (animalId) {
+            const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
+            if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
+            ongIdFinal = animal.accountId;
         } else if (ongId) {
-
-           ongIdFinal = parseInt(ongId);
+            ongIdFinal = parseInt(ongId);
         } else {
             return res.status(400).json({ error: 'É necessário especificar um animalId ou uma ongId.' });
         }
-
-           const novoLar = await prisma.larTemporario.create({
+        
+        const novoLar = await prisma.larTemporario.create({
             data: {
-                ...formData, 
-                dataNascimento: new Date(formData.dataNascimento),
-                
-                usuarioId: usuarioLogado.id, 
-                ongId: ongIdFinal, 
+                ...dadosDoFormulario, 
+                dataNascimento: new Date(dadosDoFormulario.dataNascimento),
+                usuarioId: usuarioLogado.id,
+                ongId: ongIdFinal,
                 animalId: animalId ? parseInt(animalId) : null,
+                // Agora usamos os dados da ficha completa que buscamos
+                nomeCompleto: fullUserAccount.nome,
+                cpf: fullUserAccount.cpf,
+                email: fullUserAccount.email,
+                telefone: fullUserAccount.telefone,
             }
         });
-
         res.status(201).json(novoLar);
-  
-    res.status(201).json(novoLar);
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao registrar interesse em lar temporário' });
-  }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao registrar interesse em lar temporário' });
+    }
 };
-
 // PUT por id
 const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-    const usuarioLogado = req.account;
+    const usuarioLogado = req.user;
     try {
         const lar = await prisma.larTemporario.findUnique({ where: { id: parseInt(id) } });
         if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
@@ -112,7 +129,7 @@ const updateStatus = async (req, res) => {
 // DELETE por id
 const remove = async (req, res) => {
     const { id } = req.params;
-    const usuarioLogado = req.account; 
+    const usuarioLogado = req.user; 
     try {
         const lar = await prisma.larTemporario.findUnique({ where: { id: parseInt(id) } });
         if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
