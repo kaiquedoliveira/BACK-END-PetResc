@@ -5,8 +5,9 @@ const prisma = new PrismaClient();
 const relatorioAnimais = async (req, res) => {
   try {
     const total = await prisma.animal.count();
-    const disponiveis = await prisma.animal.count({ where: { status: 'disponivel' } });
-    const adotados = await prisma.animal.count({ where: { status: 'adotado' } });
+   
+const disponiveis = await prisma.animal.count({ where: { status: 'DISPONIVEL' } });
+const adotados = await prisma.animal.count({ where: { status: 'ADOTADO' } });
 
     res.json({ total, disponiveis, adotados });
   } catch (error) {
@@ -38,12 +39,13 @@ const relatorioDoacoes = async (req, res) => {
 // Relatório usuarios
 const relatorioUsuarios = async (req, res) => {
   try {
-    const total = await prisma.usuario.count();
-    const admins = await prisma.usuario.count({ where: { tipo: 'admin' } });
-    const ongs = await prisma.usuario.count({ where: { tipo: 'ong' } });
-    const normais = await prisma.usuario.count({ where: { tipo: 'normal' } });
+    const total = await prisma.account.count(); //consultando por account
 
-    res.json({ total, admins, ongs, usuarios_normais: normais });
+    const admins = await prisma.account.count({ where: { role: 'ADMIN' } });
+    const ongs = await prisma.account.count({ where: { role: 'ONG' } });
+    const publicos = await prisma.account.count({ where: { role: 'PUBLICO' } });
+
+    res.json({ total, admins, ongs, usuarios_publicos: publicos });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao gerar relatório de usuários' });

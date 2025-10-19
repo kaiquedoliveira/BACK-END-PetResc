@@ -10,4 +10,5 @@ router.get('/animais',authenticateToken, authorizeRole("ADMIN"), relatorioContro
 router.get('/doacoes', authenticateToken,authorizeRole("ADMIN"), relatorioController.relatorioDoacoes);
 router.get('/usuarios', authenticateToken,authorizeRole("ADMIN"), relatorioController.relatorioUsuarios);
 
+
 module.exports = router;
