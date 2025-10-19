@@ -7,9 +7,7 @@ const bcrypt = require('bcrypt');
 // ADMIN: Lista todas as contas
 const listarUsuarios = async (req, res) => {
     try {
-        const contas = await prisma.account.findMany({
-            include: { admin: true, ong: true, publico: true },
-        });
+        const contas = await prisma.account.findMany(); 
         contas.forEach(conta => delete conta.password);
         res.json(contas);
     } catch (err) {
@@ -20,10 +18,10 @@ const listarUsuarios = async (req, res) => {
 
 // ADMIN: Cria uma conta
 const criarUsuario = async (req, res) => {
-    const { email, password, role, name, cnpj, descricao, endereco, cpf } = req.body;
+    const { email, password, role, nome, cnpj, descricao, endereco, cpf } = req.body;
 
-    if (!email || !password || !role) {
-        return res.status(400).json({ error: 'Preencha email, senha e role' });
+    if (!email || !password || !role || !nome || !cpf) {
+        return res.status(400).json({ error: 'Preencha email, senha, role, nome e cpf' });
     }
 
     try {
@@ -33,12 +31,18 @@ const criarUsuario = async (req, res) => {
                 email,
                 password: hashedPassword,
                 role,
-                ...(role === 'ADMIN' && { admin: { create: { nome: name } } }),
-                ...(role === 'ONG' && { ong: { create: { name, cnpj, descricao, endereco } } }),
-                ...(role === 'PUBLICO' && { publico: { create: { nome: name, cpf: cpf } } }),
+                nome,
+                cpf,
+                telefone,
+                ...(role === 'ONG' && { ong: { create: { nome, cnpj, descricao, endereco } } }),
+                ...(role === 'ADMIN' && { admin: { create: { nome } } }),
+                ...(role === 'PUBLICO' && { publico: { create: {} } }) // Cria um 'publico' vazio para a relação
             },
             include: { admin: true, ong: true, publico: true },
         });
+
+
+
         delete novaConta.password;
         res.status(201).json(novaConta);
     } catch (err) {
@@ -80,44 +84,7 @@ const deletarUsuario = async (req, res) => {
         res.status(500).json({ error: 'Erro ao remover usuário' });
     }
 };
-//cadastro pubico
-const registrarUsuarioPublico = async (req, res) => {
-    const { email, password, name, cpf } = req.body; 
 
-    if (!email || !password || !name || !cpf) {
-        return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (nome, email, senha e CPF).' });
-    }
-
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const novaConta = await prisma.account.create({
-            data: {
-                email,
-                password: hashedPassword,
-                role: 'PUBLICO',
-                publico: {
-                    create: {
-                        nome: name,
-                        cpf: cpf 
-                }
-               }
-            },
-            include: {  publico: true 
-            }
-        });
-
-        
-        delete novaConta.password;
-        res.status(201).json(novaConta);
-    } catch (err) {
-        console.error("ERRO DETALHADO DO PRISMA:", err);
-        if (err.code === 'P2002') {
-            const field = err.meta.target.includes('email') ? 'Email' : 'CPF';
-            return res.status(400).json({ error: `Este ${field} já está em uso.` });
-        }
-        res.status(500).json({ error: 'Erro ao registrar usuário.' });
-    }
-};
 // LOGADO: Obter usuário por ID
 const obterUsuarioPorId = async (req, res) => {
     try {
@@ -149,61 +116,34 @@ const obterUsuarioPorId = async (req, res) => {
 const atualizarUsuario = async (req, res) => {
     try {
         const userIdToUpdate = parseInt(req.params.id);
-        const loggedInUser = req.account;
-        const { name, email } = req.body;
+        const loggedInUser = req.user; 
+        const { nome, email, telefone, cpf } = req.body;
 
         if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToUpdate) {
             return res.status(403).json({ error: "Acesso negado" });
         }
 
-        const account = await prisma.account.findUnique({ where: { id: userIdToUpdate } });
-        if (!account) return res.status(404).json({ error: 'Conta não encontrada' });
+        const updatedAccount = await prisma.account.update({
+            where: { id: userIdToUpdate },
+            data: { // Passamos um objeto com os campos a serem atualizados
+                email: email,
+                nome: nome,
+                telefone: telefone,
+                cpf: cpf
+            },
+        });
 
-        if (email && email !== account.email) {
-            const emailExist = await prisma.account.findUnique({ where: { email } });
-            if (emailExist) return res.status(400).json({ error: 'Email já em uso' });
-        }
-
-        let profileUpdatePromise;
-        if (name) {
-            if (account.role === 'PUBLICO') {
-                profileUpdatePromise = prisma.publico.update({
-                    where: { id: userIdToUpdate },
-                    data: { nome: name }
-                });
-            } else if (account.role === 'ADMIN') {
-                profileUpdatePromise = prisma.admin.update({
-                    where: { id: userIdToUpdate },
-                    data: { nome: name }
-                });
-            } else if (account.role === 'ONG') {
-                profileUpdatePromise = prisma.ong.update({
-                    where: { id: userIdToUpdate },
-                    data: { name: name }
-                });
-            }
-        }
-
-        const transactionResult = await prisma.$transaction([
-            prisma.account.update({ where: { id: userIdToUpdate }, data: { email } }),
-            ...(profileUpdatePromise ? [profileUpdatePromise] : [])
-        ]);
-
-        const updatedAccount = transactionResult[0];
         delete updatedAccount.password;
-
         res.json({ message: "Usuário atualizado com sucesso", account: updatedAccount });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Erro ao atualizar usuário.' });
     }
 };
-
 module.exports = {
     listarUsuarios,
     criarUsuario,
     deletarUsuario,
-    registrarUsuarioPublico,
     obterUsuarioPorId,
     atualizarUsuario
 };
