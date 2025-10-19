@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controller/usuariosController');
-const { authenticateToken } = require('../middlewares/authMiddleware');
-const authorizeRole = require('../middlewares/roleMiddleware');
+const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
-router.post('/register', userController.registrarUsuarioPublico);
+
 
 router.post('/', authenticateToken, authorizeRole("ADMIN"), userController.criarUsuario);
 router.get('/', authenticateToken, authorizeRole("ADMIN"), userController.listarUsuarios);

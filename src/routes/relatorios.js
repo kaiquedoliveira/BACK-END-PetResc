@@ -7,6 +7,6 @@ const { authenticateToken, authorizeRole } = require('../middlewares/authMiddlew
 router.use(authenticateToken, authorizeRole('ADMIN'));
 router.get('/animais', relatorioController.relatorioAnimais);
 router.get('/doacoes', relatorioController.relatorioDoacoes);
-router.get('/doacoes', relatorioController.relatorioDoacoes);
+router.get('/usuarios', relatorioController.relatorioUsuarios);
 
 module.exports = router;
