@@ -13,8 +13,7 @@ const larTemporarioRoutes = require("./routes/larTemporario");
 const ongsRoutes = require("./routes/ongs");
 const relatoriosRoutes = require("./routes/relatorios");
 const feedRoutes = require("./routes/feed");
-const reportRoutes = require("./routes/report");
-const adocoesRoutes = require("./routes/adocoes")
+const adocoesRoutes = require("./routes/adocoes");
 
 const adminRoutes = require("./routes/protectedRoutes");
 
@@ -35,9 +34,7 @@ app.use("/larTemporario", larTemporarioRoutes);
 app.use("/ongs", ongsRoutes);
 app.use("/relatorios", relatoriosRoutes);
 app.use("/feed", feedRoutes);
-app.use("/report", reportRoutes);
-app.use("/adocoes", adocoesRoutes)
-
+app.use('/pedidos-adocao', adocoesRoutes);
 app.get("/api", (req, res) => {
   res.json({ message: "API rodando corretamente!" });
 });
