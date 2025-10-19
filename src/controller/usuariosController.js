@@ -18,7 +18,7 @@ const listarUsuarios = async (req, res) => {
 
 // ADMIN: Cria uma conta
 const criarUsuario = async (req, res) => {
-    const { email, password, role, nome, cnpj, descricao, endereco, cpf } = req.body;
+    const { email, password, role, nome, cnpj, descricao, endereco, cpf, telefone } = req.body;
 
     if (!email || !password || !role || !nome || !cpf) {
         return res.status(400).json({ error: 'Preencha email, senha, role, nome e cpf' });
@@ -89,7 +89,7 @@ const deletarUsuario = async (req, res) => {
 const obterUsuarioPorId = async (req, res) => {
     try {
         const userIdToView = parseInt(req.params.id);
-        const loggedInUser = req.account;
+        const loggedInUser = req.user;
 
         if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToView) {
             return res.status(403).json({ error: "Acesso negado" });
