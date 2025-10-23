@@ -6,29 +6,78 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 
 exports.register = async (req, res) => {
-  const { name: nome, email, cpf, password, telefone } = req.body;
+    const { nome, email, cpf, password, telefone } = req.body;
 
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (!nome || !email || !cpf || !password) {
+        return res.status(400).json({ error: "Nome, email, cpf e senha são obrigatórios." });
+    }
 
-    const novaConta = await prisma.account.create({
-      data: {
-        nome,
-        email,
-        cpf,
-        password: hashedPassword,
-        telefone,
-        role: 'PUBLICO',
-        publico: { create: {} }
-      },
-    });
-    
-    const { password: _, ...usuarioSemSenha } = novaConta;
-    res.status(201).json(usuarioSemSenha);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao criar conta.' });
-  }
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const novaConta = await prisma.account.create({
+            data: {
+                nome,
+                email,
+                cpf,
+                telefone,
+                password: hashedPassword,
+                role: 'PUBLICO', 
+                publico: {      
+                    create: {} 
+                }
+            },
+            select: { id: true, nome: true, email: true, role: true }
+        });
+
+        res.status(201).json(novaConta);
+    } catch (err) {
+        console.error("Erro ao criar conta PÚBLICA:", err);
+        if (err.code === 'P2002') { 
+            return res.status(400).json({ error: 'Email ou CPF já está em uso.' });
+        }
+        res.status(500).json({ error: 'Erro ao criar conta.' });
+    }
+};
+
+exports.registerOng = async (req, res) => {
+    const { nome, email, cnpj, password, telefone, descricao, endereco } = req.body;
+
+    if (!nome || !email || !cnpj || !password) {
+        return res.status(400).json({ error: "Nome da ONG, email, cnpj e senha são obrigatórios." });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const novaContaOng = await prisma.account.create({
+            data: {
+                nome,
+                email,
+                telefone,
+                password: hashedPassword,
+                cpf: cnpj, 
+                role: 'ONG',
+                ong: {        
+                    create: {
+                        nome,
+                        cnpj,
+                        descricao,
+                        endereco
+                    }
+                }
+            },
+            select: { id: true, nome: true, email: true, role: true, ong: true }
+        });
+
+        res.status(201).json(novaContaOng);
+    } catch (err) {
+        console.error("Erro ao criar conta de ONG:", err);
+        if (err.code === 'P2002') {
+            return res.status(400).json({ error: 'Email ou CNPJ já está em uso.' });
+        }
+        res.status(500).json({ error: 'Erro ao criar conta de ONG.' });
+    }
 };
 
 exports.login = async (req, res) => {
@@ -36,8 +85,8 @@ exports.login = async (req, res) => {
     try {
         const usuario = await prisma.account.findUnique({
             where: { email },
-            include: { admin: true, ong: true } 
-        });
+            include: { admin: true, ong: true, publico: true }
+          });
 
         if (!usuario) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
 
@@ -62,8 +111,8 @@ exports.me = async (req, res) => {
     try {
         const usuario = await prisma.account.findUnique({
             where: { id: req.user.id },
-            include: { ong: true, admin: true } 
-        });
+            include: { admin: true, ong: true, publico: true }
+          });
 
         if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
