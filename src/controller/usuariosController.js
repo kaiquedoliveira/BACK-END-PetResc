@@ -115,28 +115,35 @@ const obterUsuarioPorId = async (req, res) => {
 // LOGADO: Atualizar usuário
 const atualizarUsuario = async (req, res) => {
     try {
-        const userIdToUpdate = parseInt(req.params.id);
-        const loggedInUser = req.user; 
-        const { nome, email, telefone, cpf } = req.body;
+         const userIdToUpdate = parseInt(req.params.id);
+         const loggedInUser = req.user; 
+        
+        const { nome, telefone } = req.body;
 
         if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToUpdate) {
-            return res.status(403).json({ error: "Acesso negado" });
+           return res.status(403).json({ error: "Acesso negado" });
+        }
+
+        const dadosParaAtualizar = {};
+        if (nome) dadosParaAtualizar.nome = nome;
+        if (telefone) dadosParaAtualizar.telefone = telefone;
+
+        if (Object.keys(dadosParaAtualizar).length === 0) {
+            return res.status(400).json({ error: 'Nenhum dado para atualizar foi fornecido.' });
         }
 
         const updatedAccount = await prisma.account.update({
-            where: { id: userIdToUpdate },
-            data: { // Passamos um objeto com os campos a serem atualizados
-                email: email,
-                nome: nome,
-                telefone: telefone,
-                cpf: cpf
-            },
-        });
+         where: { id: userIdToUpdate },
+       data: dadosParaAtualizar, // Usamos o objeto dinâmico
+      });
 
-        delete updatedAccount.password;
-        res.json({ message: "Usuário atualizado com sucesso", account: updatedAccount });
-    } catch (err) {
+    delete updatedAccount.password;
+     res.json({ message: "Usuário atualizado com sucesso", account: updatedAccount });
+  } catch (err) {
         console.error(err);
+        if (err.code === 'P2002') {
+            return res.status(400).json({ error: 'Ocorreu um erro de conflito. Os dados podem já estar em uso.' });
+        }
         res.status(500).json({ error: 'Erro ao atualizar usuário.' });
     }
 };
