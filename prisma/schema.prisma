@@ -58,10 +58,18 @@ model Ong {
   cnpj      String?
   descricao String?
   endereco  String?
-  account   Account @relation(fields: [id], references: [id], onDelete: Cascade)
+  cep         String?
+  rua         String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  estado      String?
 
   doacoes       Doacao[]
   larTemporarios LarTemporario[]
+  account   Account @relation(fields: [id], references: [id], onDelete: Cascade)
+
 }
 
 model Animal {

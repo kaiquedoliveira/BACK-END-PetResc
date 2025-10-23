@@ -39,12 +39,21 @@ exports.register = async (req, res) => {
         res.status(500).json({ error: 'Erro ao criar conta.' });
     }
 };
-
 exports.registerOng = async (req, res) => {
-    const { nome, email, cnpj, password, telefone, descricao, endereco } = req.body;
+    const { 
+      name, 
+      cpf,
+      nomeOng,
+      cnpj,
+      email,
+      descricao,
+      telefone,
+      password,
+      cep, rua, numero, complemento, bairro, cidade, estado
+    } = req.body;
 
-    if (!nome || !email || !cnpj || !password) {
-        return res.status(400).json({ error: "Nome da ONG, email, cnpj e senha são obrigatórios." });
+    if (!name || !email || !cnpj || !password || !nomeOng || !cpf) {
+        return res.status(400).json({ error: "Dados essenciais (nome, email, cpf, cnpj, senha) são obrigatórios." });
     }
 
     try {
@@ -52,18 +61,18 @@ exports.registerOng = async (req, res) => {
 
         const novaContaOng = await prisma.account.create({
             data: {
-                nome,
+                nome: name, 
                 email,
                 telefone,
                 password: hashedPassword,
-                cpf: cnpj, 
-                role: 'ONG',
-                ong: {        
+                cpf: cpf,      
+                role: 'ONG',                
+                ong: {         
                     create: {
-                        nome,
+                        nome: nomeOng,
                         cnpj,
                         descricao,
-                        endereco
+                        cep, rua, numero, complemento, bairro, cidade, estado
                     }
                 }
             },
@@ -74,7 +83,7 @@ exports.registerOng = async (req, res) => {
     } catch (err) {
         console.error("Erro ao criar conta de ONG:", err);
         if (err.code === 'P2002') {
-            return res.status(400).json({ error: 'Email ou CNPJ já está em uso.' });
+            return res.status(400).json({ error: 'Email, CPF ou CNPJ já está em uso.' });
         }
         res.status(500).json({ error: 'Erro ao criar conta de ONG.' });
     }
