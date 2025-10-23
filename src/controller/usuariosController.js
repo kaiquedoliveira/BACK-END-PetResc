@@ -112,7 +112,7 @@ const obterUsuarioPorId = async (req, res) => {
     }
 };
 
-// LOGADO: Atualizar usuário
+//  Atualizar usuário
 const atualizarUsuario = async (req, res) => {
     try {
          const userIdToUpdate = parseInt(req.params.id);
