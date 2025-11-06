@@ -112,6 +112,24 @@ const obterUsuarioPorId = async (req, res) => {
     }
 };
 
+
+const obterUsuarioLogado = async (req, res) => {
+  try {
+    const account = await prisma.account.findUnique({
+      where: { id: req.user.id },
+      include: { admin: true, ong: true, publico: true }
+    });
+
+    if (!account) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    delete account.password;
+    res.json(account);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao obter usuário.' });
+  }
+};
+
 //  Atualizar usuário
 const atualizarUsuario = async (req, res) => {
     try {
@@ -152,5 +170,6 @@ module.exports = {
     criarUsuario,
     deletarUsuario,
     obterUsuarioPorId,
-    atualizarUsuario
+    atualizarUsuario,
+    obterUsuarioLogado
 };

@@ -30,6 +30,7 @@ app.use("/ongs", ongsRoutes);
 app.use("/relatorios", relatoriosRoutes);
 app.use("/feed", feedRoutes);
 app.use('/pedidos-adocao', adocoesRoutes);
+
 app.get("/api", (req, res) => {
   res.json({ message: "API rodando corretamente!" });
 });
