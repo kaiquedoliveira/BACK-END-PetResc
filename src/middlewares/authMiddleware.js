@@ -3,7 +3,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
+  console.log("Authorization Header:", authHeader);
+
   const token = authHeader && authHeader.split(' ')[1]; 
+
   if (!token) {
     return res.status(401).json({ message: 'Token não fornecido' });
   }
@@ -21,7 +24,11 @@ const authenticateToken = (req, res, next) => {
         return res.status(403).json({ error: 'Token inválido ou expirado.' });
     }
 
+
+
 };
+
+
 
 const authorizeRole = (roles) => {
    return (req, res, next) => {
