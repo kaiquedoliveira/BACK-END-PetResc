@@ -190,7 +190,7 @@ enum StatusAdocao {
 
 model PedidoAdocao {
   id          Int          @id @default(autoincrement())
-  status      StatusPedido @default(PENDENTE) // Usando nosso Enum!
+  status      StatusPedido @default(PENDENTE) // Usando Enum
   dataPedido  DateTime     @default(now())
 
   animalId    Int
