@@ -7,24 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- O MODELO ACCOUNT FINAL E SIMPLIFICADO ---
 model Account {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   role      Role
 
-  // DADOS COMUNS DO USUÁRIO CENTRALIZADOS AQUI:
-  nome      String   // Seguindo a SUA padronização
+  nome      String   
   cpf       String   @unique
   telefone  String?
 
   // Relações com perfis que têm dados EXCLUSIVOS
   admin     Admin?
   ong       Ong?
-  publico   Publico? // Mantemos a relação, mas o 'Publico' ficará mais simples
+  publico   Publico? 
 
-  // Relações com outras partes do sistema
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
   animals        Animal[]
@@ -39,16 +36,12 @@ enum Role {
 
 model Admin {
   id      Int     @id
-  // 'nome' agora está no Account, mas podemos manter aqui se admin tiver um nome diferente
   nome    String
   account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
-// O MODELO PUBLICO FICOU MUITO MAIS SIMPLES
-// Ele agora serve apenas para "marcar" a conta, sem dados duplicados.
 model Publico {
   id      Int     @id
-  // Os campos nome, cpf e telefone foram MOVIDOS para o Account
   account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
@@ -179,7 +172,6 @@ model Ficha {
   @@map("fichas")
 }
 
-/// Estados possiveis para adoçao
 enum StatusAdocao {
   DISPONIVEL
   ADOTADO
@@ -196,11 +188,9 @@ model PedidoAdocao {
   animalId    Int
   animal      Animal       @relation("AnimalPedidos", fields: [animalId], references: [id])
 
-  // Relação com a Conta do usuário que fez o pedido (o candidato)
   candidatoId Int
   candidato   Account      @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
 
-  // Mapeia o nome da tabela no banco para "pedidos_adocao" (boa prática)
   @@map("pedidos_adocao")
 }
 
