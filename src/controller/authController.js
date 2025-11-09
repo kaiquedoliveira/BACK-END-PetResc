@@ -1,9 +1,20 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
+const JWT_RESET_SECRET = process.env.JWT_RESET_SECRET || 'pet_reset_secret_super_seguro';
+
+let transporter = nodemailer.createTransport({
+  service: 'gmail', 
+  secure: false,
+  auth: {
+    user: 'petresc.company@gmail.com', 
+    pass: 'shim xlzu koms bfkq',
+  }      
+});
 
 exports.register = async (req, res) => {
     const { nome, email, cpf, password, telefone } = req.body;
@@ -12,10 +23,11 @@ exports.register = async (req, res) => {
         return res.status(400).json({ error: "Nome, email, cpf e senha são obrigatórios." });
     }
 
+    let novaConta; 
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        const novaConta = await prisma.account.create({
+        novaConta = await prisma.account.create({
             data: {
                 nome,
                 email,
@@ -23,22 +35,37 @@ exports.register = async (req, res) => {
                 telefone,
                 password: hashedPassword,
                 role: 'PUBLICO', 
-                publico: {      
-                    create: {} 
-                }
+                publico: { create: {} }
             },
             select: { id: true, nome: true, email: true, role: true }
         });
 
-        res.status(201).json(novaConta);
     } catch (err) {
-        console.error("Erro ao criar conta PÚBLICA:", err);
+        console.error("Erro ao CRIAR conta PÚBLICA:", err);
         if (err.code === 'P2002') { 
             return res.status(400).json({ error: 'Email ou CPF já está em uso.' });
         }
-        res.status(500).json({ error: 'Erro ao criar conta.' });
+        return res.status(500).json({ error: 'Erro ao criar conta.' });
     }
+
+    try {
+        await transporter.sendMail({
+          from: '"PetResc" <petresc.company@gmail.com>', 
+          to: email, 
+          subject: `Boas Vindas ao PetResc, ${nome}!`,
+          html: `
+            <h2>Que bom que se juntou à nós, ${nome}!</h2>
+            <p>Desfrute de nossos recursos para encontrar seu novo melhor amigo.</p>
+            <p>Agradecemos seu cadastro!</p>
+          `,
+        });
+    } catch (emailErr) {
+        console.error("AVISO: Conta criada, mas e-mail de boas-vindas falhou:", emailErr);
+    }
+
+    res.status(201).json(novaConta);
 };
+
 exports.registerOng = async (req, res) => {
     const { 
       name, 
@@ -56,10 +83,11 @@ exports.registerOng = async (req, res) => {
         return res.status(400).json({ error: "Dados essenciais (nome, email, cpf, cnpj, senha) são obrigatórios." });
     }
 
+    let novaContaOng; 
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        const novaContaOng = await prisma.account.create({
+        novaContaOng = await prisma.account.create({
             data: {
                 nome: name, 
                 email,
@@ -79,14 +107,30 @@ exports.registerOng = async (req, res) => {
             select: { id: true, nome: true, email: true, role: true, ong: true }
         });
 
-        res.status(201).json(novaContaOng);
     } catch (err) {
-        console.error("Erro ao criar conta de ONG:", err);
+        console.error("Erro ao CRIAR conta de ONG:", err);
         if (err.code === 'P2002') {
             return res.status(400).json({ error: 'Email, CPF ou CNPJ já está em uso.' });
         }
-        res.status(500).json({ error: 'Erro ao criar conta de ONG.' });
+        return res.status(500).json({ error: 'Erro ao criar conta de ONG.' });
     }
+
+    try {
+        await transporter.sendMail({
+          from: '"PetResc" <petresc.company@gmail.com>',
+          to: email, 
+          subject: `Boas Vindas ao PetResc, ${nomeOng}!`,
+          html: `
+            <h2>Que bom que se juntou à nós, ${nomeOng}!</h2>
+            <p>Sua plataforma para conectar pets a novos lares.</p>
+            <p>Agradecemos seu cadastro!</p>
+          `,
+        });
+    } catch (emailErr) {
+        console.error(`AVISO: Conta da ONG ${nomeOng} criada, mas e-mail de boas-vindas falhou:`, emailErr);
+    }
+    
+    res.status(201).json(novaContaOng);
 };
 
 exports.login = async (req, res) => {
@@ -99,7 +143,8 @@ exports.login = async (req, res) => {
 
         if (!usuario) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
 
-        const passwordMatch = await bcrypt.compare(password, usuario.password);
+       
+        const passwordMatch = await bcrypt.compare(password, usuario.password); 
         if (!passwordMatch) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
 
         const token = jwt.sign(
@@ -132,3 +177,71 @@ exports.me = async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar dados do usuário.' });
     }
 };
+
+
+exports.forgotPassword = async (req, res) => {
+ const { email } = req.body;
+
+ try {
+  const account = await prisma.account.findUnique({
+     where: { email },
+     });
+
+      if (!account) {
+       return res.json({ message: "Se este e-mail estiver cadastrado, um link será enviado." });
+     }
+
+    const token = jwt.sign({ userId: account.id }, JWT_RESET_SECRET, { expiresIn: '15m' });
+
+    const resetLink = `http://localhost:5173/redefinir-senha?token=${token}`;
+
+   
+
+    let info = await transporter.sendMail({
+      from: '"PetResc" <petresc.senai@gmail.com>',
+      to: email, 
+      subject: 'Redefinição de Senha - PetResc',
+      html: `
+        <h2>Redefinição de Senha</h2>
+        <p>Você solicitou a redefinição da sua senha. Clique no link abaixo para criar uma nova senha:</p>
+        <a href="${resetLink}" target="_blank">Redefinir Senha</a>
+        <p>Este link expira em 15 minutos.</p>
+      `,
+    });
+
+    res.json({ message: "Se este e-mail estiver cadastrado, um link será enviado." });
+
+  } catch (err) {
+     console.error(err);
+    res.status(500).json({ error: "Erro ao processar solicitação" });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: "Token e nova senha são obrigatórios" });
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_RESET_SECRET);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.account.update({
+      where: { id: payload.userId },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ message: "Senha redefinida com sucesso!" });
+
+  } catch (err) {
+    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: "Token inválido ou expirado." });
+    }
+    console.error(err);
+    res.status(500).json({ error: "Erro ao redefinir senha." });
+  }
+};
+
