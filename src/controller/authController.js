@@ -217,6 +217,47 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+exports.atualizarPerfil = async (req, res) => {
+    
+    const { nome, telefone, password, currentPassword } = req.body; 
+    const userId = req.user.id;
+
+    try {
+        const usuario = await prisma.account.findUnique({ where: { id: userId } });
+        if (!usuario) return res.status(404).json({ error: "Usuário não encontrado" });
+
+        const dadosParaAtualizar = {};
+
+        if (nome) dadosParaAtualizar.nome = nome;
+        if (telefone) dadosParaAtualizar.telefone = telefone;
+
+        if (password && password.trim() !== "") {
+            if (!currentPassword) {
+                return res.status(400).json({ error: "Para alterar a senha, informe sua senha atual." });
+            }
+
+            const senhaBate = await bcrypt.compare(currentPassword, usuario.password);
+            if (!senhaBate) {
+                return res.status(401).json({ error: "A senha atual está incorreta." });
+            }
+
+            dadosParaAtualizar.password = await bcrypt.hash(password, 10);
+        }
+
+        const usuarioAtualizado = await prisma.account.update({
+            where: { id: userId },
+            data: dadosParaAtualizar,
+            select: { id: true, nome: true, email: true, telefone: true, role: true }
+        });
+
+        res.json({ message: "Dados atualizados com sucesso!", user: usuarioAtualizado });
+
+    } catch (err) {
+        console.error("Erro ao atualizar perfil:", err);
+        res.status(500).json({ error: "Erro interno ao atualizar." });
+    }
+};
+
 exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
 
