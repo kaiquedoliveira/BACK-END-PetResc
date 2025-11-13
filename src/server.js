@@ -17,6 +17,7 @@ const ongsRoutes = require("./routes/ongs");
 const relatoriosRoutes = require("./routes/relatorios");
 const feedRoutes = require("./routes/feed");
 const adocoesRoutes = require("./routes/adocoes");
+const adminRoutes = require('./routes/admin');
 
 
 
@@ -31,6 +32,8 @@ app.use("/api/feed", feedRoutes);
 app.use('/api/pedidos-adocao', adocoesRoutes);
 app.use('/uploads', express.static('uploads'));
 app.use('/api/animais', animaisRoutes);
+
+app.use('/admin', adminRoutes);
 
 app.get("/api", (req, res) => {
   res.json({ message: "API rodando corretamente!" });
