@@ -1,13 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const adocoesController = require('../controller/adocoesController');
-const { authenticateToken } = require('../middlewares/authMiddleware');
+const pedidosController = require('../controller/adocoesController');
+const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
+
 
 router.use(authenticateToken);
 
-router.get('/', adocoesController.listarPedidos);
+router.post('/', pedidosController.criarPedido);
 
-router.post('/', adocoesController.criarPedido);
+router.get('/meus-pedidos', pedidosController.listarMeusPedidos);
+
+router.get('/gerenciar', authorizeRole(['ADMIN', 'ONG']), pedidosController.listarPedidosParaGerenciamento);
+
+router.patch('/:id/status', authorizeRole(['ADMIN', 'ONG']), pedidosController.atualizarStatusPedido);
+
 
 
 module.exports = router;

@@ -16,14 +16,15 @@ const listarAnimais = async (req, res) => {
         ]
       },
         include: {
-                account: {
-                    include: {
-                        publico: true,
-                        ong: true,
-                        admin: true
-                    }
-                }
-            }
+    account: {
+        select: { 
+            id: true,
+            nome: true,
+            email: true,
+            telefone: true
+        }
+    }
+}
     });
     res.json(animais);
   } catch (err) {
@@ -40,14 +41,15 @@ const buscarAnimalPorId = async (req, res) => {
     const animal = await prisma.animal.findUnique({
       where: { id: parseInt(id) },
       include: {
-                account: {
-                    include: {
-                        publico: true,
-                        ong: true,
-                        admin: true
-                    }
-                }
-            }
+    account: {
+        select: { 
+            id: true,
+            nome: true,
+            email: true,
+            telefone: true
+        }
+    }
+}
     });
 
     if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
@@ -61,17 +63,17 @@ const buscarAnimalPorId = async (req, res) => {
 
 // Cria um novo animal
 const criarAnimal = async (req, res) => {
-  const { name, especie, raca, idade, status, porte, sexo, descricao, photoURL } = req.body;
-  const usuarioLogado = req.account;
+  const { nome, especie, raca, idade, status, porte, sexo, descricao, photoURL } = req.body;
+  const usuarioLogado = req.user;
 
-  if (!name || !especie) {
+  if (!nome || !especie) {
     return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
   }
 
   try {
     const novoAnimal = await prisma.animal.create({
       data: {
-        nome: name,
+        nome,
         especie,
         raca,
         idade: idade ? parseInt(idade) : null,
@@ -80,8 +82,8 @@ const criarAnimal = async (req, res) => {
         sexo,
         descricao,
         photoURL,
-        accountId: usuarioLogado.id
-              },
+        accountId: usuarioLogado.id    
+      },
     });
 
     res.status(201).json(novoAnimal);
@@ -94,8 +96,8 @@ const criarAnimal = async (req, res) => {
 // Atualiza os dados de um animal
 const atualizarAnimal = async (req, res) => {
     const { id } = req.params;
-    const usuarioLogado = req.account;
-    const { name, ...dataToUpdate } = req.body;
+    const usuarioLogado = req.user;
+    const { nome, ...dataToUpdate } = req.body;
 
 
     try {
@@ -105,16 +107,16 @@ const atualizarAnimal = async (req, res) => {
         if (animal.accountId !== usuarioLogado.id && usuarioLogado.role !== 'ADMIN') {
             return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar este animal.' });
         }
-          if (name) {
-            dataToUpdate.nome = name;
+          if (nome) {
+            dataToUpdate.nome = nome;
         }
 
         if (dataToUpdate.idade) dataToUpdate.idade = parseInt(dataToUpdate.idade);
 
-        const animalAtualizado = await prisma.animal.update({
-            where: { id: parseInt(id) },
-            data: dataToUpdate,
-        });
+         const animalAtualizado = await prisma.animal.update({
+           where: { id: parseInt(id) },
+           data: dataToUpdate,
+      });
         res.json(animalAtualizado);
     } catch (err) {
         console.error(err);
@@ -124,7 +126,7 @@ const atualizarAnimal = async (req, res) => {
 // Deleta um animal
 const deletarAnimal = async (req, res) => {
     const { id } = req.params;
-    const usuarioLogado = req.account;
+    const usuarioLogado = req.user;
 
     try {
         const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
@@ -141,10 +143,62 @@ const deletarAnimal = async (req, res) => {
         res.status(500).json({ error: 'Erro ao deletar animal.' });
     }
 };
+
+
+const favoritarAnimal = async (req, res) => {
+    const animalId = parseInt(req.params.id);
+    const usuarioId = req.user.id;
+
+    try {
+        const animal = await prisma.animal.findUnique({ where: { id: animalId } });
+        if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
+
+        await prisma.favorito.create({
+            data: {
+                usuarioId,
+                animalId
+            }
+        });
+
+        res.status(201).json({ message: 'Animal adicionado aos favoritos!' });
+    } catch (err) {
+        if (err.code === 'P2002') {
+            return res.status(400).json({ error: 'Você já favoritou este animal.' });
+        }
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao favoritar animal.' });
+    }
+};
+
+const desfavoritarAnimal = async (req, res) => {
+    const animalId = parseInt(req.params.id);
+    const usuarioId = req.user.id;
+
+    try {
+        await prisma.favorito.delete({
+            where: {
+                usuarioId_animalId: { 
+                    usuarioId,
+                    animalId
+                }
+            }
+        });
+
+        res.json({ message: 'Animal removido dos favoritos.' });
+    } catch (err) {
+        if (err.code === 'P2025') {
+             return res.status(404).json({ error: 'Este animal não estava nos seus favoritos.' });
+        }
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao desfavoritar.' });
+    }
+};
 module.exports = {
   listarAnimais,
   buscarAnimalPorId,
   criarAnimal,
   atualizarAnimal,
-  deletarAnimal
+  deletarAnimal,
+  favoritarAnimal,
+  desfavoritarAnimal
 };

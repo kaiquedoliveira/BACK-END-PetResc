@@ -7,57 +7,64 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// login usuario
 model Account {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   role      Role
+
+  nome      String   
+  cpf       String   @unique
+  telefone  String?
+
+  // Relações com perfis que têm dados EXCLUSIVOS
   admin     Admin?
   ong       Ong?
-  publico   Publico?
+  publico   Publico? 
 
+
+  favoritos Favorito[]
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
   animals        Animal[]
-  pedidosAdocao PedidoAdocao[] @relation("CandidatoPedidos")
-
+  pedidosAdocao  PedidoAdocao[] @relation("CandidatoPedidos")
 }
-/// papeis possíveis
+
 enum Role {
   ADMIN
   ONG
   PUBLICO
 }
 
-/// Perfil administrador — usa o mesmo ID da account
 model Admin {
   id      Int     @id
   nome    String
   account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
-/// Perfil de público geral — usa o mesmo ID da Account
 model Publico {
   id      Int     @id
-  nome    String
-  cpf     String  @unique 
-
   account Account @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
-/// Perfil de ONG — usa o mesmo ID da Account
 model Ong {
   id        Int     @id
-  name      String?
+  nome      String? // Seguindo a SUA padronização
   cnpj      String?
   descricao String?
   endereco  String?
+  cep         String?
+  rua         String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  estado      String?
+
+  doacoes       Doacao[]
+  larTemporarios LarTemporario[]
   account   Account @relation(fields: [id], references: [id], onDelete: Cascade)
 
-  // Relações inversas
-  doacoes        Doacao[]
-  larTemporarios LarTemporario[]
 }
 
 model Animal {
@@ -81,6 +88,8 @@ model Animal {
   accountId Int
   account   Account @relation(fields: [accountId], references: [id])
 
+  favoritos Favorito[]
+  
   larTemporarios LarTemporario[] // relação inversa
   pedidosAdocao PedidoAdocao[] @relation("AnimalPedidos")
 
@@ -167,7 +176,6 @@ model Ficha {
   @@map("fichas")
 }
 
-/// Estados possiveis para adoçao
 enum StatusAdocao {
   DISPONIVEL
   ADOTADO
@@ -178,18 +186,28 @@ enum StatusAdocao {
 
 model PedidoAdocao {
   id          Int          @id @default(autoincrement())
-  status      StatusPedido @default(PENDENTE) // Usando nosso Enum!
+  status      StatusPedido @default(PENDENTE) // Usando Enum
   dataPedido  DateTime     @default(now())
 
   animalId    Int
   animal      Animal       @relation("AnimalPedidos", fields: [animalId], references: [id])
 
-  // Relação com a Conta do usuário que fez o pedido (o candidato)
   candidatoId Int
   candidato   Account      @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
 
-  // Mapeia o nome da tabela no banco para "pedidos_adocao" (boa prática)
   @@map("pedidos_adocao")
+}
+
+model Favorito {
+  usuarioId Int
+  animalId  Int
+  createdAt DateTime @default(now())
+
+  usuario   Account @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  animal    Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  // Essa chave composta impede que o usuário favorite o mesmo animal 2 vezes
+  @@id([usuarioId, animalId]) 
 }
 
 enum StatusPedido {
