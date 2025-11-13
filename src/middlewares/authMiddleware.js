@@ -3,18 +3,44 @@ const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1]; 
+  console.log("Authorization Header:", authHeader);
+
+  const token = authHeader && authHeader.split(' ')[1]; 
 
   if (!token) {
     return res.status(401).json({ message: 'Token não fornecido' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ message: 'Token inválido ou expirado' });
+  try {
+        const decodedUser = jwt.verify(token, JWT_SECRET);
+
+        req.user = decodedUser; 
+
+        
+        next(); 
+
+    } catch (err) {
+        console.error("Erro na verificação do token:", err.message);
+        return res.status(403).json({ error: 'Token inválido ou expirado.' });
     }
-    req.account = decoded;     next();
-  });
+
+
+
 };
 
-module.exports = { authenticateToken };
+
+
+const authorizeRole = (roles) => {
+   return (req, res, next) => {
+        const allowedRoles = Array.isArray(roles) ? roles : [roles];
+        if (req.user && allowedRoles.includes(req.user.role)) {
+            next();
+        } else {
+            res.status(403).json({ error: 'Acesso negado. Permissões insuficientes.' });
+        }
+    };
+};
+module.exports = {
+    authenticateToken,
+    authorizeRole
+};

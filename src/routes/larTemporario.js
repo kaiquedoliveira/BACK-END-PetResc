@@ -1,13 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const larTemporarioController = require('../controller/larTemporarioController');
-const { authenticateToken } = require('../middlewares/authMiddleware');
+const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
 
-router.get('/', authenticateToken,  larTemporarioController.getAll);
-router.get('/:id', authenticateToken,  larTemporarioController.getById);
-router.post('/', authenticateToken, larTemporarioController.create);
-router.put('/:id', authenticateToken, larTemporarioController.updateStatus);
-router.delete('/:id',authenticateToken,  larTemporarioController.remove);
+router.use(authenticateToken);
+
+
+router.get('/', larTemporarioController.getAll);
+router.get('/:id', larTemporarioController.getById);
+router.post('/', authorizeRole('PUBLICO'), larTemporarioController.create);
+router.patch('/:id/status', authorizeRole(['ADMIN', 'ONG']), larTemporarioController.updateStatus);
+router.delete('/:id', larTemporarioController.remove);
+
+
 
 module.exports = router;

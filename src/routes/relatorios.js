@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const relatorioController = require('../controller/relatoriosController');
-const { authenticateToken } = require('../middlewares/authMiddleware');
-const authorizeRole = require('../middlewares/roleMiddleware'); 
+const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
 
-
-router.get('/animais',authenticateToken, authorizeRole("ADMIN"), relatorioController.relatorioAnimais);
-router.get('/doacoes', authenticateToken,authorizeRole("ADMIN"), relatorioController.relatorioDoacoes);
-router.get('/usuarios', authenticateToken,authorizeRole("ADMIN"), relatorioController.relatorioUsuarios);
+router.use(authenticateToken, authorizeRole('ADMIN'));
+router.get('/animais', relatorioController.relatorioAnimais);
+router.get('/doacoes', relatorioController.relatorioDoacoes);
+router.get('/usuarios', relatorioController.relatorioUsuarios);
 
 module.exports = router;

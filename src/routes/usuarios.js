@@ -1,18 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const userController = require('../controller/usuariosController');
-const { authenticateToken } = require('../middlewares/authMiddleware');
-const authorizeRole = require('../middlewares/roleMiddleware');
+const usuariosController = require('../controller/usuariosController');
+const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
-// Rota pública para registro de usuário (não precisa de token)
-router.post('/register', userController.registrarUsuarioPublico);
+router.use(authenticateToken);
 
-// Rotas protegidas (necessário token)
-router.post('/', authenticateToken, authorizeRole("ADMIN"), userController.criarUsuario);
-router.get('/', authenticateToken, authorizeRole("ADMIN"), userController.listarUsuarios);
-router.get('/:id', authenticateToken, userController.obterUsuarioPorId);
-router.put('/:id', authenticateToken, userController.atualizarUsuario);
-router.delete('/:id', authenticateToken, authorizeRole("ADMIN"), userController.deletarUsuario);
+router.get('/me', usuariosController.obterUsuarioLogado);
+router.get('/me/animais', usuariosController.listarAnimaisDoUsuario);
+router.get('/me/pedidos-adocao', usuariosController.listarPedidosDoUsuario);
+router.put('/me/alterar-senha', usuariosController.alterarSenha);
+router.get('/me/favoritos', usuariosController.listarFavoritos);
 
+router.post('/', authorizeRole("ADMIN"), usuariosController.criarUsuario);
+router.get('/', authorizeRole("ADMIN"), usuariosController.listarUsuarios);
+router.delete('/:id', authorizeRole("ADMIN"), usuariosController.deletarUsuario);
+
+router.get('/:id', usuariosController.obterUsuarioPorId);
+router.put('/:id', usuariosController.atualizarUsuario);
 
 module.exports = router;

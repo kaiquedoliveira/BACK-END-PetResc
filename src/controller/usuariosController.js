@@ -1,4 +1,3 @@
-// src/controller/usuariosController.js
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -7,9 +6,7 @@ const bcrypt = require('bcrypt');
 // ADMIN: Lista todas as contas
 const listarUsuarios = async (req, res) => {
     try {
-        const contas = await prisma.account.findMany({
-            include: { admin: true, ong: true, publico: true },
-        });
+        const contas = await prisma.account.findMany(); 
         contas.forEach(conta => delete conta.password);
         res.json(contas);
     } catch (err) {
@@ -20,10 +17,10 @@ const listarUsuarios = async (req, res) => {
 
 // ADMIN: Cria uma conta
 const criarUsuario = async (req, res) => {
-    const { email, password, role, name, cnpj, descricao, endereco, cpf } = req.body;
+    const { email, password, role, nome, cnpj, descricao, endereco, cpf, telefone } = req.body;
 
-    if (!email || !password || !role) {
-        return res.status(400).json({ error: 'Preencha email, senha e role' });
+    if (!email || !password || !role || !nome || !cpf) {
+        return res.status(400).json({ error: 'Preencha email, senha, role, nome e cpf' });
     }
 
     try {
@@ -33,12 +30,18 @@ const criarUsuario = async (req, res) => {
                 email,
                 password: hashedPassword,
                 role,
-                ...(role === 'ADMIN' && { admin: { create: { nome: name } } }),
-                ...(role === 'ONG' && { ong: { create: { name, cnpj, descricao, endereco } } }),
-                ...(role === 'PUBLICO' && { publico: { create: { nome: name, cpf: cpf } } }),
+                nome,
+                cpf,
+                telefone,
+                ...(role === 'ONG' && { ong: { create: { nome, cnpj, descricao, endereco } } }),
+                ...(role === 'ADMIN' && { admin: { create: { nome } } }),
+                ...(role === 'PUBLICO' && { publico: { create: {} } }) // Cria um 'publico' vazio para a relação
             },
             include: { admin: true, ong: true, publico: true },
         });
+
+
+
         delete novaConta.password;
         res.status(201).json(novaConta);
     } catch (err) {
@@ -80,49 +83,12 @@ const deletarUsuario = async (req, res) => {
         res.status(500).json({ error: 'Erro ao remover usuário' });
     }
 };
-//cadastro pubico
-const registrarUsuarioPublico = async (req, res) => {
-    const { email, password, name, cpf } = req.body; 
 
-    if (!email || !password || !name || !cpf) {
-        return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (nome, email, senha e CPF).' });
-    }
-
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const novaConta = await prisma.account.create({
-            data: {
-                email,
-                password: hashedPassword,
-                role: 'PUBLICO',
-                publico: {
-                    create: {
-                        nome: name,
-                        cpf: cpf 
-                }
-               }
-            },
-            include: {  publico: true 
-            }
-        });
-
-        
-        delete novaConta.password;
-        res.status(201).json(novaConta);
-    } catch (err) {
-        console.error("ERRO DETALHADO DO PRISMA:", err);
-        if (err.code === 'P2002') {
-            const field = err.meta.target.includes('email') ? 'Email' : 'CPF';
-            return res.status(400).json({ error: `Este ${field} já está em uso.` });
-        }
-        res.status(500).json({ error: 'Erro ao registrar usuário.' });
-    }
-};
 // LOGADO: Obter usuário por ID
 const obterUsuarioPorId = async (req, res) => {
     try {
         const userIdToView = parseInt(req.params.id);
-        const loggedInUser = req.account;
+        const loggedInUser = req.user;
 
         if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToView) {
             return res.status(403).json({ error: "Acesso negado" });
@@ -145,65 +111,211 @@ const obterUsuarioPorId = async (req, res) => {
     }
 };
 
-// LOGADO: Atualizar usuário
-const atualizarUsuario = async (req, res) => {
+
+const obterUsuarioLogado = async (req, res) => {
+  try {
+    const account = await prisma.account.findUnique({
+      where: { id: req.user.id },
+      include: { admin: true, ong: true, publico: true }
+    });
+
+    if (!account) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    delete account.password;
+    res.json(account);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao obter usuário.' });
+  }
+};
+
+const listarAnimaisDoUsuario = async (req, res) => {
     try {
-        const userIdToUpdate = parseInt(req.params.id);
-        const loggedInUser = req.account;
-        const { name, email } = req.body;
+        const userId = req.user.id; 
 
-        if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToUpdate) {
-            return res.status(403).json({ error: "Acesso negado" });
-        }
-
-        const account = await prisma.account.findUnique({ where: { id: userIdToUpdate } });
-        if (!account) return res.status(404).json({ error: 'Conta não encontrada' });
-
-        if (email && email !== account.email) {
-            const emailExist = await prisma.account.findUnique({ where: { email } });
-            if (emailExist) return res.status(400).json({ error: 'Email já em uso' });
-        }
-
-        let profileUpdatePromise;
-        if (name) {
-            if (account.role === 'PUBLICO') {
-                profileUpdatePromise = prisma.publico.update({
-                    where: { id: userIdToUpdate },
-                    data: { nome: name }
-                });
-            } else if (account.role === 'ADMIN') {
-                profileUpdatePromise = prisma.admin.update({
-                    where: { id: userIdToUpdate },
-                    data: { nome: name }
-                });
-            } else if (account.role === 'ONG') {
-                profileUpdatePromise = prisma.ong.update({
-                    where: { id: userIdToUpdate },
-                    data: { name: name }
-                });
+        const animais = await prisma.animal.findMany({
+            where: {
+                accountId: userId 
+            },
+            orderBy: {
+                createdAt: 'desc' 
             }
-        }
+        });
 
-        const transactionResult = await prisma.$transaction([
-            prisma.account.update({ where: { id: userIdToUpdate }, data: { email } }),
-            ...(profileUpdatePromise ? [profileUpdatePromise] : [])
-        ]);
-
-        const updatedAccount = transactionResult[0];
-        delete updatedAccount.password;
-
-        res.json({ message: "Usuário atualizado com sucesso", account: updatedAccount });
+        res.json(animais);
     } catch (err) {
         console.error(err);
+        res.status(500).json({ error: 'Erro ao buscar animais do usuário.' });
+    }
+};
+
+const listarPedidosDoUsuario = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const pedidos = await prisma.pedidoAdocao.findMany({
+            where: {
+                candidatoId: userId 
+            },
+            include: {
+                animal: {
+                    include: {
+                        account: {
+                            select: {
+                                email: true, 
+                                telefone: true,
+                                ong: {
+                                    select: {
+                                        nome: true,
+                                        cidade: true,
+                                        estado: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                dataPedido: 'desc'
+            }
+        });
+
+        const pedidosFormatados = pedidos.map(pedido => ({
+            id: pedido.id,
+            status: pedido.status,
+            dataPedido: pedido.dataPedido,
+            animal: {
+                id: pedido.animal.id,
+                nome: pedido.animal.nome,
+                foto: pedido.animal.photoURL,
+                dono: {
+                    nome: pedido.animal.account.ong?.nome || pedido.animal.account.nome, 
+                    telefone: pedido.animal.account.telefone,
+                    email: pedido.animal.account.email,
+                    cidade: pedido.animal.account.ong?.cidade,
+                    estado: pedido.animal.account.ong?.estado
+                }
+            }
+        }));
+
+        res.json(pedidosFormatados);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao buscar pedidos de adoção.' });
+    }
+};
+
+
+const alterarSenha = async (req, res) => {
+    const { senhaAntiga, novaSenha } = req.body;
+    const userId = req.user.id; 
+
+    if (!senhaAntiga || !novaSenha) {
+        return res.status(400).json({ error: 'Por favor, informe a senha antiga e a nova senha.' });
+    }
+
+    try {
+        const usuario = await prisma.account.findUnique({
+            where: { id: userId }
+        });
+
+        if (!usuario) {
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        const senhaValida = await bcrypt.compare(senhaAntiga, usuario.password);
+
+        if (!senhaValida) {
+            return res.status(401).json({ error: 'A senha antiga está incorreta.' });
+        }
+
+        const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
+
+        await prisma.account.update({
+            where: { id: userId },
+            data: { password: novaSenhaHash }
+        });
+
+        res.json({ message: 'Senha alterada com sucesso!' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao alterar a senha.' });
+    }
+};
+//  Atualizar usuário
+const atualizarUsuario = async (req, res) => {
+    try {
+         const userIdToUpdate = parseInt(req.params.id);
+         const loggedInUser = req.user; 
+        
+        const { nome, telefone } = req.body;
+
+        if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToUpdate) {
+           return res.status(403).json({ error: "Acesso negado" });
+        }
+
+        const dadosParaAtualizar = {};
+        if (nome) dadosParaAtualizar.nome = nome;
+        if (telefone) dadosParaAtualizar.telefone = telefone;
+
+        if (Object.keys(dadosParaAtualizar).length === 0) {
+            return res.status(400).json({ error: 'Nenhum dado para atualizar foi fornecido.' });
+        }
+
+        const updatedAccount = await prisma.account.update({
+         where: { id: userIdToUpdate },
+       data: dadosParaAtualizar, // Usamos o objeto dinâmico
+      });
+
+    delete updatedAccount.password;
+     res.json({ message: "Usuário atualizado com sucesso", account: updatedAccount });
+  } catch (err) {
+        console.error(err);
+        if (err.code === 'P2002') {
+            return res.status(400).json({ error: 'Ocorreu um erro de conflito. Os dados podem já estar em uso.' });
+        }
         res.status(500).json({ error: 'Erro ao atualizar usuário.' });
     }
 };
 
+const listarFavoritos = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const favoritos = await prisma.favorito.findMany({
+            where: {
+                usuarioId: userId
+            },
+            include: {
+                animal: {
+                    include: {
+                        account: {
+                            select: { nome: true, telefone: true, email: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        const animaisFavoritos = favoritos.map(fav => fav.animal);
+
+        res.json(animaisFavoritos);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao buscar favoritos.' });
+    }
+};
 module.exports = {
     listarUsuarios,
     criarUsuario,
     deletarUsuario,
-    registrarUsuarioPublico,
     obterUsuarioPorId,
-    atualizarUsuario
+    atualizarUsuario,
+    obterUsuarioLogado,
+    listarAnimaisDoUsuario,
+    listarPedidosDoUsuario,
+    alterarSenha,
+    listarFavoritos
 };
