@@ -22,6 +22,8 @@ model Account {
   ong       Ong?
   publico   Publico? 
 
+
+  favoritos Favorito[]
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
   animals        Animal[]
@@ -86,6 +88,8 @@ model Animal {
   accountId Int
   account   Account @relation(fields: [accountId], references: [id])
 
+  favoritos Favorito[]
+  
   larTemporarios LarTemporario[] // relação inversa
   pedidosAdocao PedidoAdocao[] @relation("AnimalPedidos")
 
@@ -191,6 +195,18 @@ model PedidoAdocao {
   candidato   Account      @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
 
   @@map("pedidos_adocao")
+}
+
+model Favorito {
+  usuarioId Int
+  animalId  Int
+  createdAt DateTime @default(now())
+
+  usuario   Account @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  animal    Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  // Essa chave composta impede que o usuário favorite o mesmo animal 2 vezes
+  @@id([usuarioId, animalId]) 
 }
 
 enum StatusPedido {
