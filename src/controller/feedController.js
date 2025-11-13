@@ -1,28 +1,31 @@
 const { PrismaClient, StatusAdocao } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-// GET padrão
 const getFeed = async (req, res) => {
-
   const { especie, porte, sexo } = req.query;
+
+  console.log("--- NOVA REQUISICAO FEED ---");
+  console.log("1. Filtros Recebidos do Front:", { especie, porte, sexo });
+
   try {
     const whereClause = {
-      status: StatusAdocao.DISPONIVEL, // Sempre buscamos apenas animais disponíveis
-      ...(especie && { especie: { contains: especie, mode: 'insensitive' } }),
-      ...(porte && { porte: { contains: porte, mode: 'insensitive' } }),
-      ...(sexo && { sexo: { equals: sexo } }),
-    }; 
-      const animais = await prisma.animal.findMany({
-      where: whereClause,
+      status: StatusAdocao.DISPONIVEL,
+      ...(especie && { especie: { contains: especie, mode: "insensitive" } }),
+      ...(porte && { porte: { contains: porte, mode: "insensitive" } }),
+      ...(sexo && { sexo: { equals: sexo, mode: "insensitive" } }),
+    };
 
+    console.log("2. Where Clause Gerada:", JSON.stringify(whereClause, null, 2));
+
+    const animais = await prisma.animal.findMany({
+      where: whereClause,
       include: {
         account: {
           select: {
-            // Apenas os dados da ONG nos interessam para o feed
             ong: {
               select: {
                 id: true,
-                nome: true, 
+                nome: true,
                 endereco: true,
               },
             },
@@ -34,9 +37,10 @@ const getFeed = async (req, res) => {
       },
     });
 
-    const feedFormatado = animais.map(animal => {
-      const ongInfo = animal.account?.ong || null;
+    console.log(`3. Animais encontrados no banco: ${animais.length}`);
 
+    const feedFormatado = animais.map((animal) => {
+      const ongInfo = animal.account?.ong || null;
       const { account, ...animalData } = animal;
       return {
         ...animalData,
@@ -46,11 +50,9 @@ const getFeed = async (req, res) => {
 
     res.json(feedFormatado);
   } catch (error) {
-    console.error("Erro ao carregar feed:", error);
+    console.error("ERRO FATAL no Feed:", error);
     res.status(500).json({ error: "Erro ao carregar feed de animais" });
   }
 };
 
-module.exports = {
-  getFeed,
-};
+module.exports = { getFeed };
