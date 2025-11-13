@@ -1,4 +1,3 @@
-// src/controller/usuariosController.js
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -130,6 +129,121 @@ const obterUsuarioLogado = async (req, res) => {
   }
 };
 
+const listarAnimaisDoUsuario = async (req, res) => {
+    try {
+        const userId = req.user.id; 
+
+        const animais = await prisma.animal.findMany({
+            where: {
+                accountId: userId 
+            },
+            orderBy: {
+                createdAt: 'desc' 
+            }
+        });
+
+        res.json(animais);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao buscar animais do usuário.' });
+    }
+};
+
+const listarPedidosDoUsuario = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const pedidos = await prisma.pedidoAdocao.findMany({
+            where: {
+                candidatoId: userId 
+            },
+            include: {
+                animal: {
+                    include: {
+                        account: {
+                            select: {
+                                email: true, 
+                                telefone: true,
+                                ong: {
+                                    select: {
+                                        nome: true,
+                                        cidade: true,
+                                        estado: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                dataPedido: 'desc'
+            }
+        });
+
+        const pedidosFormatados = pedidos.map(pedido => ({
+            id: pedido.id,
+            status: pedido.status,
+            dataPedido: pedido.dataPedido,
+            animal: {
+                id: pedido.animal.id,
+                nome: pedido.animal.nome,
+                foto: pedido.animal.photoURL,
+                dono: {
+                    nome: pedido.animal.account.ong?.nome || pedido.animal.account.nome, 
+                    telefone: pedido.animal.account.telefone,
+                    email: pedido.animal.account.email,
+                    cidade: pedido.animal.account.ong?.cidade,
+                    estado: pedido.animal.account.ong?.estado
+                }
+            }
+        }));
+
+        res.json(pedidosFormatados);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao buscar pedidos de adoção.' });
+    }
+};
+
+
+const alterarSenha = async (req, res) => {
+    const { senhaAntiga, novaSenha } = req.body;
+    const userId = req.user.id; 
+
+    if (!senhaAntiga || !novaSenha) {
+        return res.status(400).json({ error: 'Por favor, informe a senha antiga e a nova senha.' });
+    }
+
+    try {
+        const usuario = await prisma.account.findUnique({
+            where: { id: userId }
+        });
+
+        if (!usuario) {
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        const senhaValida = await bcrypt.compare(senhaAntiga, usuario.password);
+
+        if (!senhaValida) {
+            return res.status(401).json({ error: 'A senha antiga está incorreta.' });
+        }
+
+        const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
+
+        await prisma.account.update({
+            where: { id: userId },
+            data: { password: novaSenhaHash }
+        });
+
+        res.json({ message: 'Senha alterada com sucesso!' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao alterar a senha.' });
+    }
+};
 //  Atualizar usuário
 const atualizarUsuario = async (req, res) => {
     try {
@@ -165,11 +279,43 @@ const atualizarUsuario = async (req, res) => {
         res.status(500).json({ error: 'Erro ao atualizar usuário.' });
     }
 };
+
+const listarFavoritos = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const favoritos = await prisma.favorito.findMany({
+            where: {
+                usuarioId: userId
+            },
+            include: {
+                animal: {
+                    include: {
+                        account: {
+                            select: { nome: true, telefone: true, email: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        const animaisFavoritos = favoritos.map(fav => fav.animal);
+
+        res.json(animaisFavoritos);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao buscar favoritos.' });
+    }
+};
 module.exports = {
     listarUsuarios,
     criarUsuario,
     deletarUsuario,
     obterUsuarioPorId,
     atualizarUsuario,
-    obterUsuarioLogado
+    obterUsuarioLogado,
+    listarAnimaisDoUsuario,
+    listarPedidosDoUsuario,
+    alterarSenha,
+    listarFavoritos
 };
