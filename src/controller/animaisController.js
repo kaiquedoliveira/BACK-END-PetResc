@@ -143,10 +143,62 @@ const deletarAnimal = async (req, res) => {
         res.status(500).json({ error: 'Erro ao deletar animal.' });
     }
 };
+
+
+const favoritarAnimal = async (req, res) => {
+    const animalId = parseInt(req.params.id);
+    const usuarioId = req.user.id;
+
+    try {
+        const animal = await prisma.animal.findUnique({ where: { id: animalId } });
+        if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
+
+        await prisma.favorito.create({
+            data: {
+                usuarioId,
+                animalId
+            }
+        });
+
+        res.status(201).json({ message: 'Animal adicionado aos favoritos!' });
+    } catch (err) {
+        if (err.code === 'P2002') {
+            return res.status(400).json({ error: 'Você já favoritou este animal.' });
+        }
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao favoritar animal.' });
+    }
+};
+
+const desfavoritarAnimal = async (req, res) => {
+    const animalId = parseInt(req.params.id);
+    const usuarioId = req.user.id;
+
+    try {
+        await prisma.favorito.delete({
+            where: {
+                usuarioId_animalId: { 
+                    usuarioId,
+                    animalId
+                }
+            }
+        });
+
+        res.json({ message: 'Animal removido dos favoritos.' });
+    } catch (err) {
+        if (err.code === 'P2025') {
+             return res.status(404).json({ error: 'Este animal não estava nos seus favoritos.' });
+        }
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao desfavoritar.' });
+    }
+};
 module.exports = {
   listarAnimais,
   buscarAnimalPorId,
   criarAnimal,
   atualizarAnimal,
-  deletarAnimal
+  deletarAnimal,
+  favoritarAnimal,
+  desfavoritarAnimal
 };

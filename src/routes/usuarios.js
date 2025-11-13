@@ -1,21 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const {
-  listarUsuarios,
-  criarUsuario,
-  deletarUsuario,
-  obterUsuarioPorId,
-  atualizarUsuario,
-  obterUsuarioLogado
-} = require('../controller/usuariosController');
-
+const usuariosController = require('../controller/usuariosController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
-router.get('/me', authenticateToken, obterUsuarioLogado); 
-router.post('/', authenticateToken, authorizeRole("ADMIN"), criarUsuario);
-router.get('/', authenticateToken, authorizeRole("ADMIN"), listarUsuarios);
-router.get('/:id', authenticateToken, obterUsuarioPorId);
-router.put('/:id', authenticateToken, atualizarUsuario);
-router.delete('/:id', authenticateToken, authorizeRole("ADMIN"), deletarUsuario);
+router.use(authenticateToken);
+
+router.get('/me', usuariosController.obterUsuarioLogado);
+router.get('/me/animais', usuariosController.listarAnimaisDoUsuario);
+router.get('/me/pedidos-adocao', usuariosController.listarPedidosDoUsuario);
+router.put('/me/alterar-senha', usuariosController.alterarSenha);
+router.get('/me/favoritos', usuariosController.listarFavoritos);
+
+router.post('/', authorizeRole("ADMIN"), usuariosController.criarUsuario);
+router.get('/', authorizeRole("ADMIN"), usuariosController.listarUsuarios);
+router.delete('/:id', authorizeRole("ADMIN"), usuariosController.deletarUsuario);
+
+router.get('/:id', usuariosController.obterUsuarioPorId);
+router.put('/:id', usuariosController.atualizarUsuario);
 
 module.exports = router;
