@@ -173,11 +173,10 @@ model Ficha {
 }
 
 enum StatusAdocao {
+  PERDIDO
+  ENCONTRADO
   DISPONIVEL
-  ADOTADO
-  SOBRE_TRATAMENTO
 }
-
 
 
 model PedidoAdocao {

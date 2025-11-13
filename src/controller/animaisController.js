@@ -63,28 +63,37 @@ const buscarAnimalPorId = async (req, res) => {
 
 // Cria um novo animal
 const criarAnimal = async (req, res) => {
-  const { nome, especie, raca, idade, status, porte, sexo, descricao, photoURL } = req.body;
+  const { nome, especie, raca, idade, status, porte, sexo, descricao, } = req.body;
   const usuarioLogado = req.user;
+  
+   const file = req.file;
 
   if (!nome || !especie) {
     return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
   }
 
+  if (!file) {
+    return res.status(400).json({ error: 'A imagem é obrigatória.' });
+  }
+
+
+  const photoURL = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+
   try {
-    const novoAnimal = await prisma.animal.create({
-      data: {
-        nome,
-        especie,
-        raca,
-        idade: idade ? parseInt(idade) : null,
-        status: status || 'DISPONIVEL',
-        porte,
-        sexo,
-        descricao,
-        photoURL,
-        accountId: usuarioLogado.id    
-      },
-    });
+    const novoAnimal = await prisma.animal.create({
+      data: {
+        nome,
+        especie,
+        raca,
+        idade: idade ? parseInt(idade) : null,
+        status: status || 'DISPONIVEL', 
+        porte,
+        sexo: sexo, 
+        descricao: descricao, 
+        photoURL: photoURL, 
+        accountId: usuarioLogado.id    
+      },
+    });
 
     res.status(201).json(novoAnimal);
   } catch (err) {
@@ -92,6 +101,8 @@ const criarAnimal = async (req, res) => {
     res.status(500).json({ error: 'Erro ao cadastrar animal.' });
   }
 };
+
+
 
 // Atualiza os dados de um animal
 const atualizarAnimal = async (req, res) => {
