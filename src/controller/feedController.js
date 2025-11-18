@@ -2,20 +2,21 @@ const { PrismaClient, StatusAdocao } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const getFeed = async (req, res) => {
-  const { especie, porte, sexo } = req.query;
+  console.log("--- LOG DEBUG FEED ---");
+  console.log("Query Params recebidos:", req.query);
 
-  console.log("--- NOVA REQUISICAO FEED ---");
-  console.log("1. Filtros Recebidos do Front:", { especie, porte, sexo });
+  const { especie, porte, sexo } = req.query;
 
   try {
     const whereClause = {
-      status: StatusAdocao.DISPONIVEL,
-      ...(especie && { especie: { contains: especie, mode: "insensitive" } }),
-      ...(porte && { porte: { contains: porte, mode: "insensitive" } }),
-      ...(sexo && { sexo: { equals: sexo, mode: "insensitive" } }),
+      
+      // Lógica de filtros
+      ...(especie && { especie: { contains: especie, mode: 'insensitive' } }),
+      ...(porte && { porte: { contains: porte, mode: 'insensitive' } }),
+      ...(sexo && { sexo: { equals: sexo } }),
     };
 
-    console.log("2. Where Clause Gerada:", JSON.stringify(whereClause, null, 2));
+    console.log("Where Clause Gerada:", JSON.stringify(whereClause, null, 2));
 
     const animais = await prisma.animal.findMany({
       where: whereClause,
@@ -37,7 +38,7 @@ const getFeed = async (req, res) => {
       },
     });
 
-    console.log(`3. Animais encontrados no banco: ${animais.length}`);
+    console.log(`Animais encontrados: ${animais.length}`);
 
     const feedFormatado = animais.map((animal) => {
       const ongInfo = animal.account?.ong || null;
@@ -50,9 +51,12 @@ const getFeed = async (req, res) => {
 
     res.json(feedFormatado);
   } catch (error) {
-    console.error("ERRO FATAL no Feed:", error);
-    res.status(500).json({ error: "Erro ao carregar feed de animais" });
+    console.error("ERRO CRÍTICO NO FEED:", error);
+    // Isso vai te mostrar se o erro é de sintaxe do Prisma (ex: usar contains em Enum)
+    res.status(500).json({ error: "Erro ao carregar feed de animais", details: error.message });
   }
 };
 
-module.exports = { getFeed };
+module.exports = {
+  getFeed,
+};
