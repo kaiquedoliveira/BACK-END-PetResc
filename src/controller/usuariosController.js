@@ -286,23 +286,38 @@ const atualizarUsuario = async (req, res) => {
          const userIdToUpdate = parseInt(req.params.id);
          const loggedInUser = req.user; 
         
-        const { nome, telefone } = req.body;
+        const { nome, 
+            telefone, 
+            cep, 
+            rua, 
+            numero, 
+            complemento, 
+            bairro, 
+            cidade, 
+            estado } = req.body;
 
         if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToUpdate) {
            return res.status(403).json({ error: "Acesso negado" });
         }
 
         const dadosParaAtualizar = {};
+        
         if (nome) dadosParaAtualizar.nome = nome;
         if (telefone) dadosParaAtualizar.telefone = telefone;
-
+        if (cep) dadosParaAtualizar.cep = cep;
+        if (rua) dadosParaAtualizar.rua = rua;
+        if (numero) dadosParaAtualizar.numero = numero;
+        if (complemento) dadosParaAtualizar.complemento = complemento;
+        if (bairro) dadosParaAtualizar.bairro = bairro;
+        if (cidade) dadosParaAtualizar.cidade = cidade;
+        if (estado) dadosParaAtualizar.estado = estado;
         if (Object.keys(dadosParaAtualizar).length === 0) {
             return res.status(400).json({ error: 'Nenhum dado para atualizar foi fornecido.' });
         }
 
         const updatedAccount = await prisma.account.update({
          where: { id: userIdToUpdate },
-       data: dadosParaAtualizar, // Usamos o objeto dinâmico
+       data: dadosParaAtualizar, // objeto dinâmico
       });
 
     delete updatedAccount.password;
