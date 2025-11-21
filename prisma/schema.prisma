@@ -18,6 +18,14 @@ model Account {
   telefone String?
   animaisVistosRecentemente String[]
 
+  cep         String?
+  rua         String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  estado      String?
+
   // Relações com perfis que têm dados EXCLUSIVOS
   admin   Admin?
   ong     Ong?
