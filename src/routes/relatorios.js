@@ -8,5 +8,6 @@ router.use(authenticateToken, authorizeRole('ADMIN'));
 router.get('/animais', relatorioController.relatorioAnimais);
 router.get('/doacoes', relatorioController.relatorioDoacoes);
 router.get('/usuarios', relatorioController.relatorioUsuarios);
+router.get('/estatisticas', relatorioController.obterEstatisticasGerais);
 
 module.exports = router;

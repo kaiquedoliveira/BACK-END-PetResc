@@ -8,26 +8,36 @@ datasource db {
 }
 
 model Account {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  role      Role
+  id       Int    @id @default(autoincrement())
+  email    String @unique
+  password String
+  role     Role
 
-  nome      String   
-  cpf       String   @unique
-  telefone  String?
+  nome     String
+  cpf      String  @unique
+  telefone String?
+  animaisVistosRecentemente String[]
+
+  cep         String?
+  rua         String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  estado      String?
 
   // Relações com perfis que têm dados EXCLUSIVOS
-  admin     Admin?
-  ong       Ong?
-  publico   Publico? 
+  admin   Admin?
+  ong     Ong?
+  publico Publico?
 
-
-  favoritos Favorito[]
+  favoritos      Favorito[]
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
   animals        Animal[]
-  pedidosAdocao  PedidoAdocao[] @relation("CandidatoPedidos")
+  pedidosAdocao  PedidoAdocao[]  @relation("CandidatoPedidos")
+  notificacoes   Notificacao[]
+  
 }
 
 enum Role {
@@ -48,11 +58,11 @@ model Publico {
 }
 
 model Ong {
-  id        Int     @id
-  nome      String? // Seguindo a SUA padronização
-  cnpj      String?
-  descricao String?
-  endereco  String?
+  id          Int     @id
+  nome        String? // Seguindo a SUA padronização
+  cnpj        String?
+  descricao   String?
+  endereco    String?
   cep         String?
   rua         String?
   numero      String?
@@ -61,10 +71,9 @@ model Ong {
   cidade      String?
   estado      String?
 
-  doacoes       Doacao[]
+  doacoes        Doacao[]
   larTemporarios LarTemporario[]
-  account   Account @relation(fields: [id], references: [id], onDelete: Cascade)
-
+  account        Account         @relation(fields: [id], references: [id], onDelete: Cascade)
 }
 
 model Animal {
@@ -89,17 +98,28 @@ model Animal {
   account   Account @relation(fields: [accountId], references: [id])
 
   favoritos Favorito[]
-  
-  larTemporarios LarTemporario[] // relação inversa
-  pedidosAdocao PedidoAdocao[] @relation("AnimalPedidos")
 
+  larTemporarios LarTemporario[] // relação inversa
+  pedidosAdocao  PedidoAdocao[]  @relation("AnimalPedidos")
+}
+
+model Notificacao {
+  id          String   @id @default(uuid())
+  accountId   Int // era String → agora Int
+  titulo      String
+  mensagem    String
+  lida        Boolean  @default(false)
+  tipo        String?
+  dataCriacao DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
 }
 
 model Doacao {
   id        Int      @id @default(autoincrement())
   usuarioId Int
   ongId     Int
-  valor     Decimal  
+  valor     Decimal
   createdAt DateTime @default(now())
 
   usuario Account @relation(fields: [usuarioId], references: [id])
@@ -129,6 +149,7 @@ model LarTemporario {
   periodoDisponibilidade String
   status                 String   @default("EM_ANALISE")
   createdAt              DateTime @default(now())
+  aprovadoPorId Int?
 
   usuario Account @relation(fields: [usuarioId], references: [id])
   ong     Ong     @relation(fields: [ongId], references: [id])
@@ -177,23 +198,21 @@ model Ficha {
 }
 
 enum StatusAdocao {
+  PERDIDO
+  ENCONTRADO
   DISPONIVEL
-  ADOTADO
-  SOBRE_TRATAMENTO
 }
 
-
-
 model PedidoAdocao {
-  id          Int          @id @default(autoincrement())
-  status      StatusPedido @default(PENDENTE) // Usando Enum
-  dataPedido  DateTime     @default(now())
+  id         Int          @id @default(autoincrement())
+  status     StatusPedido @default(PENDENTE) // Usando Enum
+  dataPedido DateTime     @default(now())
 
-  animalId    Int
-  animal      Animal       @relation("AnimalPedidos", fields: [animalId], references: [id])
+  animalId Int
+  animal   Animal @relation("AnimalPedidos", fields: [animalId], references: [id])
 
   candidatoId Int
-  candidato   Account      @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
+  candidato   Account @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
 
   @@map("pedidos_adocao")
 }
@@ -203,11 +222,11 @@ model Favorito {
   animalId  Int
   createdAt DateTime @default(now())
 
-  usuario   Account @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  animal    Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  usuario Account @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  animal  Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
 
   // Essa chave composta impede que o usuário favorite o mesmo animal 2 vezes
-  @@id([usuarioId, animalId]) 
+  @@id([usuarioId, animalId])
 }
 
 enum StatusPedido {
@@ -215,4 +234,3 @@ enum StatusPedido {
   APROVADO
   RECUSADO
 }
-

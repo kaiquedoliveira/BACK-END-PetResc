@@ -84,6 +84,42 @@ const deletarUsuario = async (req, res) => {
     }
 };
 
+const registrarVisualizacao = async (req, res) => {
+  const { animalId } = req.body;
+  const userId = req.user.id; 
+  try {
+    const usuario = await prisma.account.findUnique({
+      where: { id: userId },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    let vistos = usuario.animaisVistosRecentemente || [];
+
+    vistos = vistos.filter(id => id !== animalId);
+
+    vistos.unshift(animalId);
+
+    const novosVistos = vistos.slice(0, 10);
+
+    await prisma.account.update({
+      where: { id: userId },
+      data: {
+        animaisVistosRecentemente: novosVistos,
+      },
+    });
+
+    return res.status(200).json({ message: 'Visualização registrada com sucesso.' });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao registrar visualização.' });
+  }
+};
+
+
 // LOGADO: Obter usuário por ID
 const obterUsuarioPorId = async (req, res) => {
     try {
@@ -250,23 +286,38 @@ const atualizarUsuario = async (req, res) => {
          const userIdToUpdate = parseInt(req.params.id);
          const loggedInUser = req.user; 
         
-        const { nome, telefone } = req.body;
+        const { nome, 
+            telefone, 
+            cep, 
+            rua, 
+            numero, 
+            complemento, 
+            bairro, 
+            cidade, 
+            estado } = req.body;
 
         if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== userIdToUpdate) {
            return res.status(403).json({ error: "Acesso negado" });
         }
 
         const dadosParaAtualizar = {};
+        
         if (nome) dadosParaAtualizar.nome = nome;
         if (telefone) dadosParaAtualizar.telefone = telefone;
-
+        if (cep) dadosParaAtualizar.cep = cep;
+        if (rua) dadosParaAtualizar.rua = rua;
+        if (numero) dadosParaAtualizar.numero = numero;
+        if (complemento) dadosParaAtualizar.complemento = complemento;
+        if (bairro) dadosParaAtualizar.bairro = bairro;
+        if (cidade) dadosParaAtualizar.cidade = cidade;
+        if (estado) dadosParaAtualizar.estado = estado;
         if (Object.keys(dadosParaAtualizar).length === 0) {
             return res.status(400).json({ error: 'Nenhum dado para atualizar foi fornecido.' });
         }
 
         const updatedAccount = await prisma.account.update({
          where: { id: userIdToUpdate },
-       data: dadosParaAtualizar, // Usamos o objeto dinâmico
+       data: dadosParaAtualizar, // objeto dinâmico
       });
 
     delete updatedAccount.password;
@@ -317,5 +368,6 @@ module.exports = {
     listarAnimaisDoUsuario,
     listarPedidosDoUsuario,
     alterarSenha,
-    listarFavoritos
+    listarFavoritos,
+    registrarVisualizacao
 };
