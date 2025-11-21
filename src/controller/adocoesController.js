@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { criarNotificacao } = require('../controller/notificacoesController');
 
 const criarPedido = async (req, res) => {
     const { animalId } = req.body;
@@ -76,21 +77,37 @@ const listarMeusPedidos = async (req, res) => {
 
 
 const listarPedidosParaGerenciamento = async (req, res) => {
-   
-    try {
+    const usuarioLogado = req.user;
+    let whereClause = {};
 
-        let whereClause = {};
+    try {
+        if (usuarioLogado.role === 'ONG') {
+            whereClause = {
+                animal: {
+                    accountId: usuarioLogado.id,
+                },
+            };
+        } else if (usuarioLogado.role === 'PUBLICO') {
+          
+            return res.status(403).json({ error: 'Acesso negado para esta listagem.' });
+        }
+        
         const pedidos = await prisma.pedidoAdocao.findMany({
             where: whereClause,
             include: {
-                animal: true,
-                
+                animal: {
+                    include: {
+                        account: {
+                            select: { nome: true, email: true, telefone: true }
+                        }
+                    }
+                },
                 candidato: {
                     select: {
                         id: true,
                         email: true,
                         nome: true,  
-                        telefone: true  
+                        telefone: true,
                     }
                 }
             },
@@ -108,41 +125,21 @@ const atualizarStatusPedido = async (req, res) => {
     const { status } = req.body; 
     const { id: gestorId, role } = req.user; 
 
-    const pedido = await prisma.pedidoAdocao.findUnique({ /* ... */ });
-    const animal = await prisma.animal.findUnique({ where: { id: pedido.animalId } });
-
-    const loggedInUser = req.user;
-
-    if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== animal.accountId) {
-        return res.status(403).json({ error: 'Acesso negado. Apenas o ADMIN ou a ONG proprietária do animal podem alterar o status.' });
-    }
-
-    if (!status || !['APROVADO', 'RECUSADO'].includes(status)) {
-        return res.status(400).json({ error: "Status inválido. Use 'APROVADO' ou 'RECUSADO'." });
-    }
 
     try {
         const pedido = await prisma.pedidoAdocao.findUnique({
             where: { id: parseInt(pedidoId) },
-            include: { animal: true }
+            include: { animal: true, candidato: true } 
         });
 
-        if (!pedido) {
-            return res.status(404).json({ error: 'Pedido de adoção não encontrado.' });
-        }
+        if (!pedido) { /* ... */ }
 
         
-        if (role !== 'ADMIN' && pedido.animal.accountId !== gestorId) {
-            return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para gerenciar este pedido.' });
-        }
+        let pedidoAtualizado;
+        let mensagemNotificacao;
 
-        if (pedido.status !== 'PENDENTE') {
-            return res.status(400).json({ error: `Este pedido já foi ${pedido.status.toLowerCase()}.`})
-        }
-
-   
         if (status === 'APROVADO') {
-            const [pedidoAtualizado, animalAtualizado] = await prisma.$transaction([
+            const [pAtualizado, aAtualizado] = await prisma.$transaction([
                 prisma.pedidoAdocao.update({
                     where: { id: parseInt(pedidoId) },
                     data: { status: 'APROVADO' }
@@ -152,14 +149,27 @@ const atualizarStatusPedido = async (req, res) => {
                     data: { status: 'ADOTADO' }
                 })
             ]);
-            res.status(200).json({ message: 'Pedido aprovado com sucesso!', pedido: pedidoAtualizado });
+            pedidoAtualizado = pAtualizado;
+            mensagemNotificacao = `Parabéns! Seu pedido de adoção para ${pedido.animal.nome} foi APROVADO. Entre em contato com a ONG para os próximos passos.`;
+            
         } else { 
-            const pedidoAtualizado = await prisma.pedidoAdocao.update({
+            pedidoAtualizado = await prisma.pedidoAdocao.update({
                 where: { id: parseInt(pedidoId) },
                 data: { status: 'RECUSADO' }
             });
-            res.status(200).json({ message: 'Pedido recusado.', pedido: pedidoAtualizado });
+            mensagemNotificacao = `Seu pedido de adoção para ${pedido.animal.nome} foi RECUSADO. Não desista! Há muitos outros animais precisando de um lar.`;
         }
+
+        await criarNotificacao(
+            pedido.candidatoId,
+            `Pedido de Adoção ${status}`,
+            mensagemNotificacao,
+            'ADOCAO'
+        );
+        
+        const acaoMsg = status === 'APROVADO' ? 'aprovado com sucesso!' : 'recusado.';
+        res.status(200).json({ message: `Pedido ${acaoMsg}`, pedido: pedidoAtualizado });
+
     } catch (error) {
         console.error("Erro ao atualizar status do pedido:", error);
         res.status(500).json({ error: 'Erro interno ao atualizar o pedido.' });
