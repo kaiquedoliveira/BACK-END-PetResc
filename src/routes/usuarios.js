@@ -17,5 +17,6 @@ router.delete('/:id', authorizeRole("ADMIN"), usuariosController.deletarUsuario)
 
 router.get('/:id', usuariosController.obterUsuarioPorId);
 router.put('/:id', usuariosController.atualizarUsuario);
+router.put('/registrar-visualizacao', authenticateToken, usuariosController.registrarVisualizacao);
 
 module.exports = router;

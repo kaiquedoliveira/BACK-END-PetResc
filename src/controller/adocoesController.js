@@ -108,6 +108,15 @@ const atualizarStatusPedido = async (req, res) => {
     const { status } = req.body; 
     const { id: gestorId, role } = req.user; 
 
+    const pedido = await prisma.pedidoAdocao.findUnique({ /* ... */ });
+    const animal = await prisma.animal.findUnique({ where: { id: pedido.animalId } });
+
+    const loggedInUser = req.user;
+
+    if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== animal.accountId) {
+        return res.status(403).json({ error: 'Acesso negado. Apenas o ADMIN ou a ONG proprietária do animal podem alterar o status.' });
+    }
+
     if (!status || !['APROVADO', 'RECUSADO'].includes(status)) {
         return res.status(400).json({ error: "Status inválido. Use 'APROVADO' ou 'RECUSADO'." });
     }
