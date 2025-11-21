@@ -6,13 +6,14 @@ const nodemailer = require('nodemailer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 const JWT_RESET_SECRET = process.env.JWT_RESET_SECRET || 'pet_reset_secret_super_seguro';
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 let transporter = nodemailer.createTransport({
-  service: 'gmail', 
-  secure: false,
+  host: process.env.MAIL_HOST, 
+  port: process.env.MAIL_PORT,
   auth: {
-    user: 'petresc.company@gmail.com', 
-    pass: 'shim xlzu koms bfkq',
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
   }      
 });
 
@@ -193,8 +194,7 @@ exports.forgotPassword = async (req, res) => {
 
     const token = jwt.sign({ userId: account.id }, JWT_RESET_SECRET, { expiresIn: '15m' });
 
-    const resetLink = `http://localhost:5173/redefinir-senha?token=${token}`;
-
+          const resetLink = `${frontendUrl}/redefinir-senha?token=${token}`;
    
 
     let info = await transporter.sendMail({
