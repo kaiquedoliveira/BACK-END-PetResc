@@ -106,9 +106,46 @@ include: {
   }
 };
 
+
+const atualizarDadosOng = async (req, res) => {
+    const { cnpj, descricao, nome} = req.body; 
+    const userId = req.user.id; 
+
+    // Apenas ONG pode usar esta rota
+    if (req.user.role !== 'ONG') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas ONGs podem atualizar este perfil.' });
+    }
+
+    try {
+        const dadosOngParaAtualizar = {};
+        if (cnpj) dadosOngParaAtualizar.cnpj = cnpj;
+        if (descricao) dadosOngParaAtualizar.descricao = descricao;
+        if (nome) dadosOngParaAtualizar.nome = nomeFantasia; 
+
+        if (Object.keys(dadosOngParaAtualizar).length === 0) {
+            return res.status(400).json({ error: 'Nenhum dado de ONG para atualizar foi fornecido.' });
+        }
+
+        const updatedOng = await prisma.ong.update({
+            where: { id: userId }, // O ID da ONG é o mesmo ID da Account
+            data: dadosOngParaAtualizar,
+            select: { nome: true, cnpj: true, descricao: true }
+        });
+
+        res.json({ message: "Dados da ONG atualizados com sucesso", ong: updatedOng });
+        
+    } catch (err) {
+        console.error(err);
+        if (err.code === 'P2002') {
+             return res.status(400).json({ error: 'O CNPJ já está em uso por outra entidade.' });
+        }
+        res.status(500).json({ error: 'Erro ao atualizar dados da ONG.' });
+    }
+};
 module.exports = {
   getAllOngs,
   getOngById,
   getAnimaisByOng,
-  updateOng 
+  updateOng,
+  atualizarDadosOng
 };

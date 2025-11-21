@@ -204,6 +204,67 @@ const desfavoritarAnimal = async (req, res) => {
         res.status(500).json({ error: 'Erro ao desfavoritar.' });
     }
 };
+
+const listarAnimaisParaGerenciamento = async (req, res) => {
+    try {
+        let whereClause = {};
+        if (req.user.role === 'ONG') {
+            whereClause = { accountId: req.user.id };
+        }
+        
+        const animais = await prisma.animal.findMany({
+            where: whereClause,
+            include: {
+                account: { 
+                    select: { 
+                        id: true, 
+                        nome: true, 
+                        email: true, 
+                        telefone: true 
+                    } 
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json(animais);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao listar animais para gerenciamento.' });
+    }
+};
+
+const obterEstatisticasAnimaisPorStatus = async (req, res) => {
+    const userId = req.user.id; 
+
+    if (req.user.role !== 'ONG') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas ONGs.' });
+    }
+
+    try {
+        const estatisticas = await prisma.animal.groupBy({
+            by: ['status'],
+            where: {
+                accountId: userId, // Filtra apenas pelos animais da ONG logada
+            },
+            _count: {
+                status: true,
+            },
+        });
+
+        const resultadoFormatado = estatisticas.reduce((acc, current) => {
+            acc[current.status] = current._count.status;
+            return acc;
+        }, {});
+        
+        res.json(resultadoFormatado);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao obter estatísticas de animais.' });
+    }
+};
+
 module.exports = {
   listarAnimais,
   buscarAnimalPorId,
@@ -211,5 +272,7 @@ module.exports = {
   atualizarAnimal,
   deletarAnimal,
   favoritarAnimal,
-  desfavoritarAnimal
+  desfavoritarAnimal,
+  listarAnimaisParaGerenciamento,
+  obterEstatisticasAnimaisPorStatus
 };
