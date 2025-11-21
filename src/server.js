@@ -17,19 +17,23 @@ const ongsRoutes = require("./routes/ongs");
 const relatoriosRoutes = require("./routes/relatorios");
 const feedRoutes = require("./routes/feed");
 const adocoesRoutes = require("./routes/adocoes");
+const adminRoutes = require('./routes/admin');
 
 
 
 // Rotas principais
-app.use("/auth", authRoutes);
-app.use("/usuarios", usuariosRoutes);
-app.use("/animais", animaisRoutes);
-app.use("/doacoes", doacoesRoutes);
-app.use("/lares-Temporarios", larTemporarioRoutes);
-app.use("/ongs", ongsRoutes);
-app.use("/relatorios", relatoriosRoutes);
-app.use("/feed", feedRoutes);
-app.use('/pedidos-adocao', adocoesRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/usuarios", usuariosRoutes);
+app.use("/api/doacoes", doacoesRoutes);
+app.use("/api/lares-Temporarios", larTemporarioRoutes);
+app.use("/api/ongs", ongsRoutes);
+app.use("/api/relatorios", relatoriosRoutes);
+app.use("/api/feed", feedRoutes);
+app.use('/api/pedidos-adocao', adocoesRoutes);
+app.use('/uploads', express.static('uploads'));
+app.use('/api/animais', animaisRoutes);
+
+app.use('/admin', adminRoutes);
 
 app.get("/api", (req, res) => {
   res.json({ message: "API rodando corretamente!" });
