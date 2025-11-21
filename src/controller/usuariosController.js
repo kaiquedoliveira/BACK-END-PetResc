@@ -84,6 +84,42 @@ const deletarUsuario = async (req, res) => {
     }
 };
 
+const registrarVisualizacao = async (req, res) => {
+  const { animalId } = req.body;
+  const userId = req.user.id; 
+  try {
+    const usuario = await prisma.account.findUnique({
+      where: { id: userId },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    let vistos = usuario.animaisVistosRecentemente || [];
+
+    vistos = vistos.filter(id => id !== animalId);
+
+    vistos.unshift(animalId);
+
+    const novosVistos = vistos.slice(0, 10);
+
+    await prisma.account.update({
+      where: { id: userId },
+      data: {
+        animaisVistosRecentemente: novosVistos,
+      },
+    });
+
+    return res.status(200).json({ message: 'Visualização registrada com sucesso.' });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao registrar visualização.' });
+  }
+};
+
+
 // LOGADO: Obter usuário por ID
 const obterUsuarioPorId = async (req, res) => {
     try {
@@ -317,5 +353,6 @@ module.exports = {
     listarAnimaisDoUsuario,
     listarPedidosDoUsuario,
     alterarSenha,
-    listarFavoritos
+    listarFavoritos,
+    registrarVisualizacao
 };
