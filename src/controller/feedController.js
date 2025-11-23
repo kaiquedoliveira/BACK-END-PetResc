@@ -51,7 +51,6 @@ const getFeed = async (req, res) => {
     res.json(feedFormatado);
   } catch (error) {
     console.error("ERRO CRÍTICO NO FEED:", error);
-    // Isso vai te mostrar se o erro é de sintaxe do Prisma (ex: usar contains em Enum)
     res.status(500).json({ error: "Erro ao carregar feed de animais", details: error.message });
   }
 };

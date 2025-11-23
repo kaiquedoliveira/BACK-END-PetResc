@@ -11,9 +11,9 @@ router.post('/', pedidosController.criarPedido);
 
 router.get('/meus-pedidos', pedidosController.listarMeusPedidos);
 
-router.get('/gerenciar', authorizeRole(['ADMIN', 'ONG']), pedidosController.listarPedidosParaGerenciamento);
+router.get('/gerenciar', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), pedidosController.listarPedidosParaGerenciamento);
 
-router.patch('/:id/status', authorizeRole(['ADMIN', 'ONG']), pedidosController.atualizarStatusPedido);
+router.patch('/:id/status', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), pedidosController.atualizarStatusPedido);
 
 
 

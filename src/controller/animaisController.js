@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+
 // Lista todos os animais ou com filtros
 const listarAnimais = async (req, res) => {
   const { especie, porte, status, sexo } = req.query;
@@ -77,8 +78,7 @@ const criarAnimal = async (req, res) => {
   }
 
 
-  const photoURL = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
-
+const photoURL = file.path;
   try {
     const novoAnimal = await prisma.animal.create({
       data: {

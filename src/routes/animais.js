@@ -4,14 +4,7 @@ const animaisController = require('../controller/animaisController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware'); 
 const multer = require('multer');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
+const storage = require('../config/cloudinary'); 
 const upload = multer({ storage: storage });
 
 router.get('/', animaisController.listarAnimais);
@@ -25,7 +18,7 @@ router.post('/:id/favoritar', animaisController.favoritarAnimal);
 router.delete('/:id/desfavoritar', animaisController.desfavoritarAnimal);
 
 //  (ONG/ADMIN)
-router.post('/', authorizeRole('ONG'), upload.single('imagem'), animaisController.criarAnimal); 
+router.post('/', authorizeRole('ONG', 'PUBLICO'), upload.single('imagem'), animaisController.criarAnimal); 
 router.put('/:id', authorizeRole(['ADMIN', 'ONG']), animaisController.atualizarAnimal);
 router.delete('/:id', authorizeRole(['ADMIN', 'ONG']), animaisController.deletarAnimal);
 

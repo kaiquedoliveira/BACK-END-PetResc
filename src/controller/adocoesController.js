@@ -1,53 +1,50 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { criarNotificacao } = require('../controller/notificacoesController');
+const { sendEmail } = require('../services/emailService');
 
 const criarPedido = async (req, res) => {
     const { animalId } = req.body;
-  
     const candidatoId = req.user.id; 
+    const usuarioLogado = req.user;
 
-    if (!animalId) {
-        return res.status(400).json({ error: 'O ID do animal é obrigatório.' });
-    }
+    if (!animalId) return res.status(400).json({ error: 'O ID do animal é obrigatório.' });
 
     try {
-
-        const animal = await prisma.animal.findUnique({ where: { id: animalId } });
-        if (!animal) {
-            return res.status(404).json({ error: 'Animal não encontrado.' });
-        }
-        if (animal.status !== 'DISPONIVEL') {
-            return res.status(400).json({ error: 'Este animal não está mais disponível para adoção.' });
-        }
-
-        // Verificar se o usuário já não fez um pedido para este mesmo animal
-        const pedidoExistente = await prisma.pedidoAdocao.findFirst({
-            where: {
-                animalId: animalId,
-                candidatoId: candidatoId,
-            },
+        const animal = await prisma.animal.findUnique({ 
+            where: { id: animalId },
+            include: { account: { select: { nome: true } } } 
         });
-        if (pedidoExistente) {
-            return res.status(400).json({ error: 'Você já enviou um pedido de adoção para este animal.' });
-        }
+        
+        if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
+        if (animal.status !== 'DISPONIVEL') return res.status(400).json({ error: 'Indisponível.' });
 
+        const pedidoExistente = await prisma.pedidoAdocao.findFirst({
+            where: { animalId: animalId, candidatoId: candidatoId },
+        });
+        if (pedidoExistente) return res.status(400).json({ error: 'Pedido já realizado.' });
         
         const novoPedido = await prisma.pedidoAdocao.create({
-            data: {
-                animalId: animalId,
-                candidatoId: candidatoId,
-               
-            },
-            include: { // Inclui os detalhes do animal na resposta
-                animal: true,
-            },
+            data: { animalId, candidatoId },
+            include: { animal: true },
         });
+
+        const emailCandidato = (await prisma.account.findUnique({ where: { id: candidatoId } })).email;
+        
+        const assunto = `Pedido Recebido: ${animal.nome} 🐶`;
+        const mensagem = `
+            <h2>Olá, ${usuarioLogado.name}!</h2>
+            <p>Recebemos seu interesse em adotar o(a) <strong>${animal.nome}</strong>.</p>
+            <p><strong>Próximo Passo:</strong> A ONG/Responsável (${animal.account.nome}) irá entrar em contato com você via <strong>WhatsApp</strong> para uma breve conversa/entrevista.</p>
+            <p>Fique atento ao seu telefone!</p>
+        `;
+
+        sendEmail(emailCandidato, assunto, mensagem);
 
         res.status(201).json(novoPedido);
     } catch (error) {
-        console.error("Erro ao criar pedido de adoção:", error);
-        res.status(500).json({ error: 'Erro interno ao processar o pedido de adoção.' });
+        console.error("Erro ao criar pedido:", error);
+        res.status(500).json({ error: 'Erro interno.' });
     }
 };
 
@@ -81,15 +78,12 @@ const listarPedidosParaGerenciamento = async (req, res) => {
     let whereClause = {};
 
     try {
-        if (usuarioLogado.role === 'ONG') {
+        if (usuarioLogado.role !== 'ADMIN') {
             whereClause = {
                 animal: {
-                    accountId: usuarioLogado.id,
+                    accountId: usuarioLogado.id, 
                 },
             };
-        } else if (usuarioLogado.role === 'PUBLICO') {
-          
-            return res.status(403).json({ error: 'Acesso negado para esta listagem.' });
         }
         
         const pedidos = await prisma.pedidoAdocao.findMany({
@@ -125,40 +119,75 @@ const atualizarStatusPedido = async (req, res) => {
     const { status } = req.body; 
     const { id: gestorId, role } = req.user; 
 
+    if (!['APROVADO', 'RECUSADO'].includes(status)) {
+        return res.status(400).json({ error: "Status inválido. Use 'APROVADO' ou 'RECUSADO'." });
+    }
 
     try {
         const pedido = await prisma.pedidoAdocao.findUnique({
             where: { id: parseInt(pedidoId) },
-            include: { animal: true, candidato: true } 
+            include: { 
+                animal: true, 
+                candidato: { select: { email: true, nome: true } } 
+            }
         });
 
-        if (!pedido) { /* ... */ }
+        if (!pedido) {
+            return res.status(404).json({ error: 'Pedido não encontrado.' });
+        }
 
+        if (role !== 'ADMIN' && pedido.animal.accountId !== gestorId) {
+            return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para gerenciar este pedido.' });
+        }
         
-        let pedidoAtualizado;
+        if (pedido.status !== 'PENDENTE') {
+             return res.status(400).json({ error: `Este pedido já foi ${pedido.status.toLowerCase()}.` });
+        }
+
+
         let mensagemNotificacao;
+        let assuntoEmail;
+        let corpoEmail;
 
         if (status === 'APROVADO') {
-            const [pAtualizado, aAtualizado] = await prisma.$transaction([
+            await prisma.$transaction([
                 prisma.pedidoAdocao.update({
                     where: { id: parseInt(pedidoId) },
                     data: { status: 'APROVADO' }
                 }),
                 prisma.animal.update({
                     where: { id: pedido.animalId },
-                    data: { status: 'ADOTADO' }
+                    data: { status: 'ADOTADO' } 
                 })
             ]);
-            pedidoAtualizado = pAtualizado;
-            mensagemNotificacao = `Parabéns! Seu pedido de adoção para ${pedido.animal.nome} foi APROVADO. Entre em contato com a ONG para os próximos passos.`;
+
+            mensagemNotificacao = `Parabéns! Seu pedido de adoção para ${pedido.animal.nome} foi APROVADO.`;
+            
+            assuntoEmail = `Adoção Aprovada: ${pedido.animal.nome} é seu! 🐾`;
+            corpoEmail = `
+                <h2>Parabéns, ${pedido.candidato.nome}!</h2>
+                <p>Temos uma ótima notícia: Seu pedido de adoção para o animal <strong>${pedido.animal.nome}</strong> foi <strong>APROVADO</strong>!</p>
+                <p>A ONG entrará em contato em breve pelo seu telefone para combinar a retirada.</p>
+                <p>Obrigado por adotar!</p>
+            `;
             
         } else { 
-            pedidoAtualizado = await prisma.pedidoAdocao.update({
+            await prisma.pedidoAdocao.update({
                 where: { id: parseInt(pedidoId) },
                 data: { status: 'RECUSADO' }
             });
-            mensagemNotificacao = `Seu pedido de adoção para ${pedido.animal.nome} foi RECUSADO. Não desista! Há muitos outros animais precisando de um lar.`;
+
+            mensagemNotificacao = `Seu pedido de adoção para ${pedido.animal.nome} foi RECUSADO.`;
+            
+            assuntoEmail = `Atualização sobre a adoção de ${pedido.animal.nome}`;
+            corpoEmail = `
+                <h2>Olá, ${pedido.candidato.nome}.</h2>
+                <p>Infelizmente, seu pedido de adoção para o animal <strong>${pedido.animal.nome}</strong> não pôde ser aprovado neste momento.</p>
+                <p>Não desanime! Existem muitos outros animais na plataforma esperando por um lar.</p>
+            `;
         }
+
+        sendEmail(pedido.candidato.email, assuntoEmail, corpoEmail);
 
         await criarNotificacao(
             pedido.candidatoId,
@@ -167,8 +196,7 @@ const atualizarStatusPedido = async (req, res) => {
             'ADOCAO'
         );
         
-        const acaoMsg = status === 'APROVADO' ? 'aprovado com sucesso!' : 'recusado.';
-        res.status(200).json({ message: `Pedido ${acaoMsg}`, pedido: pedidoAtualizado });
+        res.status(200).json({ message: `Pedido ${status.toLowerCase()} com sucesso!` });
 
     } catch (error) {
         console.error("Erro ao atualizar status do pedido:", error);
