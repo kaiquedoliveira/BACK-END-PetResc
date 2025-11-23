@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { criarNotificacao } = require('../controller/notificacoesController');
+ const { sendEmail } = require('../services/emailService');
 
 // GET padrao
 const getAll = async (req, res) => {
@@ -93,7 +94,6 @@ const create = async (req, res) => {
                 usuarioId: usuarioLogado.id,
                 ongId: ongIdFinal,
                 animalId: animalId ? parseInt(animalId) : null,
-                // Agora usamos os dados da ficha completa que buscamos
                 nomeCompleto: fullUserAccount.nome,
                 cpf: fullUserAccount.cpf,
                 email: fullUserAccount.email,
@@ -112,6 +112,9 @@ const updateStatus = async (req, res) => {
     const { status } = req.body;
     const usuarioLogado = req.user;
     
+    if (!['APROVADO', 'REJEITADO'].includes(status)) {
+        return res.status(400).json({ error: 'Status inválido. Use APROVADO ou REJEITADO.' });
+    }
 
     try {
         const lar = await prisma.larTemporario.findUnique({ 
@@ -121,6 +124,9 @@ const updateStatus = async (req, res) => {
         
         if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
         
+        if (usuarioLogado.role !== 'ADMIN' && lar.ongId !== usuarioLogado.id) {
+            return res.status(403).json({ error: 'Acesso negado. Permissão insuficiente.' });
+        }
         
         const larAtualizado = await prisma.larTemporario.update({ 
             where: { id: parseInt(id) }, 
@@ -131,13 +137,23 @@ const updateStatus = async (req, res) => {
         });
 
         const acao = status === 'APROVADO' ? 'aprovado' : 'rejeitado';
-        const animalNome = lar.animal?.nome || 'um animal';
+        const animalNome = lar.animal?.nome || 'o animal';
+        
         const titulo = `Status do Lar Temporário: ${status}`;
         const mensagem = `Seu pedido de lar temporário para ${animalNome} foi ${acao}.`;
+        await criarNotificacao(lar.usuarioId, titulo, mensagem, 'LAR_TEMPORARIO'); 
         
-        await criarNotificacao(lar.usuarioId, titulo, mensagem, 'LAR_TEMPORARIO'); // Chamada
+        const assuntoEmail = `Atualização Lar Temporário: ${status}`;
+        const htmlEmail = `
+            <h2>Olá, ${lar.usuario.nome}.</h2>
+            <p>O status da sua candidatura de Lar Temporário para <strong>${animalNome}</strong> foi atualizado para: <strong>${status}</strong>.</p>
+            <p>Acesse o aplicativo para mais detalhes.</p>
+        `;
+        
+        sendEmail(lar.usuario.email, assuntoEmail, htmlEmail);
         
         res.json(larAtualizado);
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Erro ao atualizar status' });
