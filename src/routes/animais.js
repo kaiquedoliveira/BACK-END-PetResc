@@ -4,7 +4,7 @@ const animaisController = require('../controller/animaisController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware'); 
 const multer = require('multer');
 
-const storage = require('../config/cloudinary'); 
+const storage = require('../config/cloudnary'); 
 const upload = multer({ storage: storage });
 
 router.get('/', animaisController.listarAnimais);
