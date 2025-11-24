@@ -62,38 +62,57 @@ const buscarAnimalPorId = async (req, res) => {
   }
 };
 
-// Cria um novo animal
 const criarAnimal = async (req, res) => {
-  const { nome, especie, raca, idade, status, porte, sexo, descricao, } = req.body;
+  const { 
+    nome, especie, raca, idade, status, porte, sexo, descricao, cor, 
+    
+    local_resgate, data_resgate, vacinado, vermifugado, castrado, 
+    observacoes, temperamento, saude, 
+  } = req.body;
+
   const usuarioLogado = req.user;
-  
-   const file = req.file;
+  const file = req.file; 
 
   if (!nome || !especie) {
     return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
   }
 
   if (!file) {
-    return res.status(400).json({ error: 'A imagem é obrigatória.' });
-  }
+    return res.status(400).json({ error: 'A imagem é obrigatória.' });
+  }
 
+  const photoURL = file.path; 
 
-const photoURL = file.path;
   try {
-    const novoAnimal = await prisma.animal.create({
-      data: {
-        nome,
-        especie,
-        raca,
-        idade: idade ? parseInt(idade) : null,
-        status: status || 'DISPONIVEL', 
-        porte,
-        sexo: sexo, 
-        descricao: descricao, 
-        photoURL: photoURL, 
-        accountId: usuarioLogado.id    
-      },
-    });
+    const novoAnimal = await prisma.animal.create({
+      data: {
+        nome,
+        especie,
+        raca,
+        idade: idade ? parseInt(idade) : null,
+        status: status || 'DISPONIVEL', 
+        porte,
+        sexo, 
+        descricao, 
+        corPredominante: cor, 
+        photoURL: photoURL, 
+        accountId: usuarioLogado.id,
+
+        ...(usuarioLogado.role === 'ONG' && {
+            ficha: {
+                create: {
+                    nome: nome, 
+                    especie: especie,
+                    temperamento: temperamento || "Não informado", 
+                    saude: saude || `Vacinado: ${vacinado}, Vermifugado: ${vermifugado}`,
+                    castrado: castrado === 'sim',
+                    observacoes: observacoes
+                }
+            }
+        })
+      },
+      include: { ficha: true } 
+    });
 
     res.status(201).json(novoAnimal);
   } catch (err) {
