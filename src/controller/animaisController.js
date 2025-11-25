@@ -227,8 +227,10 @@ const desfavoritarAnimal = async (req, res) => {
 const listarAnimaisParaGerenciamento = async (req, res) => {
     try {
         let whereClause = {};
-        if (req.user.role === 'ONG') {
-            whereClause = { accountId: req.user.id };
+        const usuarioLogado = req.user;
+
+        if (usuarioLogado.role !== 'ADMIN') {
+            whereClause = { accountId: usuarioLogado.id };
         }
         
         const animais = await prisma.animal.findMany({
