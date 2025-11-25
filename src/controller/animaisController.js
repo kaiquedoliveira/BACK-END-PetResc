@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+
 // Lista todos os animais ou com filtros
 const listarAnimais = async (req, res) => {
   const { especie, porte, status, sexo } = req.query;
@@ -67,7 +68,6 @@ const buscarAnimalPorId = async (req, res) => {
   }
 };
 
-// Cria um novo animal
 const criarAnimal = async (req, res) => {
     const { 
         nome, especie, raca, porte, sexo, cor, descricao, 
@@ -95,6 +95,7 @@ const criarAnimal = async (req, res) => {
         return res.status(400).json({ error: 'A foto principal do animal é obrigatória.' });
     }
 
+    // Lógica para obter a URL da imagem... (presumindo que está correta)
     const photoURL = `${req.protocol}://${req.get('host')}/uploads/animais/${imagemPrincipalFile.filename}`;
     let imagemResgateURL = null;
 
@@ -104,11 +105,13 @@ const criarAnimal = async (req, res) => {
 
     try {
         const dataToCreate = {
+            // --- CAMPOS BASE ---
             nome,
             especie,
             raca: raca || null,
             porte: porte || null,
             sexo: sexo || null,
+            // ⭐️ CORREÇÃO AQUI: Mapeando 'cor' do Front para 'corPredominante' do Prisma
             corPredominante: cor || null, 
             descricao: descricao || null, 
             photoURL: photoURL, 
@@ -119,6 +122,7 @@ const criarAnimal = async (req, res) => {
                 status: status || 'DISPONIVEL', 
                 idade: idade ? parseInt(idade) : null, 
                 
+                // Detalhes do Resgate
                 data_resgate: data_resgate ? new Date(data_resgate) : null,
                 local_estado, 
                 local_cidade, 
@@ -267,6 +271,69 @@ const desfavoritarAnimal = async (req, res) => {
         res.status(500).json({ error: 'Erro ao desfavoritar.' });
     }
 };
+
+const listarAnimaisParaGerenciamento = async (req, res) => {
+    try {
+        let whereClause = {};
+        const usuarioLogado = req.user;
+
+        if (usuarioLogado.role !== 'ADMIN') {
+            whereClause = { accountId: usuarioLogado.id };
+        }
+        
+        const animais = await prisma.animal.findMany({
+            where: whereClause,
+            include: {
+                account: { 
+                    select: { 
+                        id: true, 
+                        nome: true, 
+                        email: true, 
+                        telefone: true 
+                    } 
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json(animais);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao listar animais para gerenciamento.' });
+    }
+};
+
+const obterEstatisticasAnimaisPorStatus = async (req, res) => {
+    const userId = req.user.id; 
+
+    if (req.user.role !== 'ONG') {
+        return res.status(403).json({ error: 'Acesso negado. Apenas ONGs.' });
+    }
+
+    try {
+        const estatisticas = await prisma.animal.groupBy({
+            by: ['status'],
+            where: {
+                accountId: userId, // Filtra apenas pelos animais da ONG logada
+            },
+            _count: {
+                status: true,
+            },
+        });
+
+        const resultadoFormatado = estatisticas.reduce((acc, current) => {
+            acc[current.status] = current._count.status;
+            return acc;
+        }, {});
+        
+        res.json(resultadoFormatado);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Erro ao obter estatísticas de animais.' });
+    }
+};
+
 module.exports = {
   listarAnimais,
   buscarAnimalPorId,
@@ -274,5 +341,7 @@ module.exports = {
   atualizarAnimal,
   deletarAnimal,
   favoritarAnimal,
-  desfavoritarAnimal
+  desfavoritarAnimal,
+  listarAnimaisParaGerenciamento,
+  obterEstatisticasAnimaisPorStatus
 };
