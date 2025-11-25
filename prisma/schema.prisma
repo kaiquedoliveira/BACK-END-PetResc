@@ -37,8 +37,10 @@ model Account {
   animals        Animal[]
   pedidosAdocao  PedidoAdocao[]  @relation("CandidatoPedidos")
   notificacoes   Notificacao[]
-  
+  larTemporariosAprovados LarTemporario[] @relation("AprovadorLarTemporario") // NOVO CAMPO
 }
+  
+
 
 enum Role {
   ADMIN
@@ -62,7 +64,6 @@ model Ong {
   nome        String? // Seguindo a SUA padronização
   cnpj        String?
   descricao   String?
-  endereco    String?
   cep         String?
   rua         String?
   numero      String?
@@ -176,10 +177,12 @@ model LarTemporario {
   createdAt              DateTime @default(now())
   aprovadoPorId Int?
 
-  usuario Account @relation(fields: [usuarioId], references: [id])
   ong     Ong     @relation(fields: [ongId], references: [id])
   animal  Animal? @relation(fields: [animalId], references: [id])
+  usuario Account @relation(fields: [usuarioId], references: [id])
+  aprovadoPor Account? @relation("AprovadorLarTemporario", fields: [aprovadoPorId], references: [id]) // NOVO RELACIONAMENTO
 }
+
 
 model Ficha {
   id             Int          @id @default(autoincrement())

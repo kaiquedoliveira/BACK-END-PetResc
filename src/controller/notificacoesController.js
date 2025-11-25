@@ -1,4 +1,30 @@
-const prisma = require('../lib/prisma');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+const criarNotificacao = async (accountId, titulo, mensagem, tipo = 'GERAL') => {
+    if (!accountId || !titulo || !mensagem) {
+        // Loga o erro, mas não quebra a operação principal
+        console.error("Dados incompletos para criar notificação.");
+        return; 
+    }
+
+    try {
+        await prisma.notificacao.create({
+            data: {
+                accountId,
+                titulo,
+                mensagem,
+                tipo,
+            },
+        });
+        
+    } catch (error) {
+        // A falha na notificação não deve parar o processo que a chamou
+        console.error(`Falha ao criar notificação para Account ${accountId}:`, error);
+    }
+};
+
+
 
 //Listar Notificações do Usuário Logado
 const listarNotificacoes = async (req, res) => {
@@ -52,4 +78,5 @@ const marcarComoLida = async (req, res) => {
 module.exports = {
   listarNotificacoes,
   marcarComoLida,
+  criarNotificacao
 };
