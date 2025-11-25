@@ -34,7 +34,6 @@ const listarAnimais = async (req, res) => {
   }
 };
 
-// Busca um animal específico pelo ID
 const buscarAnimalPorId = async (req, res) => {
   const { id } = req.params;
 
