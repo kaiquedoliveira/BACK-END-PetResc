@@ -72,16 +72,9 @@ const criarAnimal = async (req, res) => {
     const { 
         nome, especie, raca, porte, sexo, cor, descricao, 
         
-       
-        accountId: accountIdFromForm,
-        role, 
-        
-        idade, 
-        cuidado,  
-        sociabilidade,
-        
-        status, 
-        local_estado, local_cidade, local_numero, tinha_filhotes, tinha_coleira,
+        // ... (resto da desestruturação do req.body) ...
+        idade, cuidado, sociabilidade,
+        status, local_estado, local_cidade, local_numero, tinha_filhotes, tinha_coleira,
         motivo_nao_disponivel, local_atual, data_resgate, observacoes, 
         vermifugado, data_vermifugado, vacinado, txtVacinado, castrado, dataCastrado,
         testado, txtTestado, resultados
@@ -102,7 +95,7 @@ const criarAnimal = async (req, res) => {
         return res.status(400).json({ error: 'A foto principal do animal é obrigatória.' });
     }
 
-    
+    // Lógica para obter a URL da imagem... (presumindo que está correta)
     const photoURL = `${req.protocol}://${req.get('host')}/uploads/animais/${imagemPrincipalFile.filename}`;
     let imagemResgateURL = null;
 
@@ -112,21 +105,24 @@ const criarAnimal = async (req, res) => {
 
     try {
         const dataToCreate = {
+            // --- CAMPOS BASE ---
             nome,
             especie,
             raca: raca || null,
             porte: porte || null,
             sexo: sexo || null,
-            corPredominante: cor || null,
+            // ⭐️ CORREÇÃO AQUI: Mapeando 'cor' do Front para 'corPredominante' do Prisma
+            corPredominante: cor || null, 
             descricao: descricao || null, 
             photoURL: photoURL, 
             accountId: usuarioLogado.id, 
             
-            
+            // --- LÓGICA CONDICIONAL ---
             ...(isOng ? {
                 status: status || 'DISPONIVEL', 
                 idade: idade ? parseInt(idade) : null, 
                 
+                // Detalhes do Resgate
                 data_resgate: data_resgate ? new Date(data_resgate) : null,
                 local_estado, 
                 local_cidade, 
@@ -137,6 +133,8 @@ const criarAnimal = async (req, res) => {
                 local_atual,
                 imagem_resgate_url: imagemResgateURL,
                 cuidados_veterinarios: observacoes || null, 
+                
+                // Detalhes da Saúde
                 vermifugado: vermifugado === 'sim',
                 data_vermifugado: vermifugado === 'sim' && data_vermifugado ? new Date(data_vermifugado) : null,
                 vacinado: vacinado === 'sim',
@@ -165,7 +163,6 @@ const criarAnimal = async (req, res) => {
         res.status(500).json({ error: 'Erro ao cadastrar animal.' });
     }
 };
-
 
 const atualizarAnimal = async (req, res) => {
     const { id } = req.params;
