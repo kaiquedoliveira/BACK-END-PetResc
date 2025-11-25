@@ -33,23 +33,29 @@ const listarAnimais = async (req, res) => {
   }
 };
 
-// Busca um animal específico pelo ID
 const buscarAnimalPorId = async (req, res) => {
   const { id } = req.params;
 
+  const animalId = parseInt(id);
+
+  if (isNaN(animalId)) {
+    return res.status(400).json({ error: 'ID do animal inválido.' });
+  }
+
   try {
     const animal = await prisma.animal.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: animalId }, 
       include: {
-    account: {
-        select: { 
-            id: true,
-            nome: true,
-            email: true,
-            telefone: true
-        }
-    }
-}
+        account: {
+            select: { 
+                id: true,
+                nome: true,
+                email: true,
+                telefone: true
+            }
+        },
+        ficha: true 
+      }
     });
 
     if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
