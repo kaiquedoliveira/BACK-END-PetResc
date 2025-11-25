@@ -78,20 +78,45 @@ model Ong {
 }
 
 model Animal {
-  id              Int          @id @default(autoincrement())
-  nome            String
-  especie         String
-  raca            String?
-  idade           Int?
-  status          StatusAdocao @default(DISPONIVEL)
-  porte           String?
-  sexo            String?
-  descricao       String?
-  photoURL        String?
-  corPredominante String?
+  id                    Int       @id @default(autoincrement())
+  nome                  String
+  especie               String
+  raca                  String?
+  idade                 Int?
+  status                StatusAdocao @default(DISPONIVEL)
+  porte                 String?
+  sexo                  String?
+  descricao             String?
+  photoURL              String?
+  corPredominante       String?  
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Detalhes do Resgate
+  data_resgate          DateTime? @map("dataResgate")
+  local_estado          String?
+  local_cidade          String?
+  local_numero          String?
+  tinha_filhotes        Boolean?  @map("tinhaFilhotes")
+  tinha_coleira         Boolean?  @map("tinhaColeira")
+  motivo_nao_disponivel String?   @map("motivoNaoDisponivel")
+  local_atual           String?   @map("localAtual")
+  imagem_resgate_url    String?   @map("imagemResgateURL") // Segunda Imagem
+  
+  cuidados_veterinarios String?   @map("cuidadosVeterinarios")
+  
+  vermifugado           Boolean?
+  data_vermifugado      DateTime? @map("dataVermifugado")
+  vacinado              Boolean?
+  vacinas_texto         String?   @map("vacinasTexto")
+  castrado              Boolean?
+  data_castrado         DateTime? @map("dataCastrado")
+  testado_doencas       Boolean?  @map("testadoDoencas")
+  testes_texto          String?   @map("testesTexto")
+  resultados_testes     String?   @map("resultadosTestes")
+
+  sociabilidade         String?
 
   ficha Ficha? @relation("AnimalFicha")
 

@@ -69,72 +69,109 @@ const buscarAnimalPorId = async (req, res) => {
 };
 
 const criarAnimal = async (req, res) => {
-  const { 
-    nome, especie, raca, idade, status, porte, sexo, descricao, cor, 
+    const { 
+        nome, especie, raca, porte, sexo, cor, descricao, 
+        
+       
+        accountId: accountIdFromForm,
+        role, 
+        
+        idade, 
+        cuidado,  
+        sociabilidade,
+        
+        status, 
+        local_estado, local_cidade, local_numero, tinha_filhotes, tinha_coleira,
+        motivo_nao_disponivel, local_atual, data_resgate, observacoes, 
+        vermifugado, data_vermifugado, vacinado, txtVacinado, castrado, dataCastrado,
+        testado, txtTestado, resultados
+    } = req.body;
+
+    const usuarioLogado = req.user; 
+    const isOng = usuarioLogado.role === 'ONG';
+
+    const files = req.files;
+    const imagemPrincipalFile = files?.imagem?.[0];
+    const imagemResgateFile = files?.imagem_resgate?.[0]; 
+
+    if (!nome || !especie) {
+        return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
+    }
+
+    if (!imagemPrincipalFile) {
+        return res.status(400).json({ error: 'A foto principal do animal é obrigatória.' });
+    }
+
     
-    local_resgate, data_resgate, vacinado, vermifugado, castrado, 
-    observacoes, temperamento, saude, 
-  } = req.body;
+    const photoURL = `${req.protocol}://${req.get('host')}/uploads/animais/${imagemPrincipalFile.filename}`;
+    let imagemResgateURL = null;
 
-  const usuarioLogado = req.user;
-  const file = req.file; 
+    if (imagemResgateFile) {
+        imagemResgateURL = `${req.protocol}://${req.get('host')}/uploads/animais/${imagemResgateFile.filename}`;
+    }
 
-  if (!nome || !especie) {
-    return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
-  }
+    try {
+        const dataToCreate = {
+            nome,
+            especie,
+            raca: raca || null,
+            porte: porte || null,
+            sexo: sexo || null,
+            corPredominante: cor || null,
+            descricao: descricao || null, 
+            photoURL: photoURL, 
+            accountId: usuarioLogado.id, 
+            
+            
+            ...(isOng ? {
+                status: status || 'DISPONIVEL', 
+                idade: idade ? parseInt(idade) : null, 
+                
+                data_resgate: data_resgate ? new Date(data_resgate) : null,
+                local_estado, 
+                local_cidade, 
+                local_numero,
+                tinha_filhotes: tinha_filhotes === 'sim',
+                tinha_coleira: tinha_coleira === 'sim',
+                motivo_nao_disponivel,
+                local_atual,
+                imagem_resgate_url: imagemResgateURL,
+                cuidados_veterinarios: observacoes || null, 
+                vermifugado: vermifugado === 'sim',
+                data_vermifugado: vermifugado === 'sim' && data_vermifugado ? new Date(data_vermifugado) : null,
+                vacinado: vacinado === 'sim',
+                vacinas_texto: vacinado === 'sim' ? txtVacinado : null,
+                castrado: castrado === 'sim',
+                data_castrado: castrado === 'sim' && dataCastrado ? new Date(dataCastrado) : null,
+                testado_doencas: testado === 'sim',
+                testes_texto: testado === 'sim' ? txtTestado : null,
+                resultados_testes: testado === 'sim' ? resultados : null,
+                
+            } : { 
+                status: 'ENCONTRADO', 
+                idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
+                cuidados_veterinarios: cuidado || null, 
+                sociabilidade: sociabilidade || null,
+            }),
+        };
 
-  if (!file) {
-    return res.status(400).json({ error: 'A imagem é obrigatória.' });
-  }
+        const novoAnimal = await prisma.animal.create({
+            data: dataToCreate,
+        });
 
-  const photoURL = file.path; 
-
-  try {
-    const novoAnimal = await prisma.animal.create({
-      data: {
-        nome,
-        especie,
-        raca,
-        idade: idade ? parseInt(idade) : null,
-        status: status || 'DISPONIVEL', 
-        porte,
-        sexo, 
-        descricao, 
-        corPredominante: cor, 
-        photoURL: photoURL, 
-        accountId: usuarioLogado.id,
-
-        ...(usuarioLogado.role === 'ONG' && {
-            ficha: {
-                create: {
-                    nome: nome, 
-                    especie: especie,
-                    temperamento: temperamento || "Não informado", 
-                    saude: saude || `Vacinado: ${vacinado}, Vermifugado: ${vermifugado}`,
-                    castrado: castrado === 'sim',
-                    observacoes: observacoes
-                }
-            }
-        })
-      },
-      include: { ficha: true } 
-    });
-
-    res.status(201).json(novoAnimal);
-  } catch (err) {
-    console.error('Erro detalhado:', err);
-    res.status(500).json({ error: 'Erro ao cadastrar animal.' });
-  }
+        res.status(201).json(novoAnimal);
+    } catch (err) {
+        console.error('Erro detalhado:', err);
+        res.status(500).json({ error: 'Erro ao cadastrar animal.' });
+    }
 };
 
 
-
-// Atualiza os dados de um animal
 const atualizarAnimal = async (req, res) => {
     const { id } = req.params;
     const usuarioLogado = req.user;
-    const { nome, ...dataToUpdate } = req.body;
-
+    const { nome, data_resgate, dataCastrado, data_vermifugado, ...dataRestante } = req.body;
+    let dataToUpdate = { ...dataRestante };
 
     try {
         const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
@@ -143,16 +180,24 @@ const atualizarAnimal = async (req, res) => {
         if (animal.accountId !== usuarioLogado.id && usuarioLogado.role !== 'ADMIN') {
             return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar este animal.' });
         }
-          if (nome) {
+        
+        if (nome) {
             dataToUpdate.nome = nome;
         }
 
         if (dataToUpdate.idade) dataToUpdate.idade = parseInt(dataToUpdate.idade);
 
-         const animalAtualizado = await prisma.animal.update({
-           where: { id: parseInt(id) },
-           data: dataToUpdate,
-      });
+        if (dataToUpdate.castrado) dataToUpdate.castrado = dataToUpdate.castrado === 'sim';
+
+        if (data_resgate) dataToUpdate.data_resgate = new Date(data_resgate);
+        if (dataCastrado) dataToUpdate.data_castrado = new Date(dataCastrado);
+        if (data_vermifugado) dataToUpdate.data_vermifugado = new Date(data_vermifugado);
+
+
+        const animalAtualizado = await prisma.animal.update({
+            where: { id: parseInt(id) },
+            data: dataToUpdate,
+        });
         res.json(animalAtualizado);
     } catch (err) {
         console.error(err);
