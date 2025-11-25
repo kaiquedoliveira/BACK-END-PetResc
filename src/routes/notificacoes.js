@@ -1,5 +1,12 @@
-const notificacaoController = require('../notificacaoesController');
-const { isAuthenticated } = require('../middlewares/authMiddleware');
+const express = require('express');
+const router = express.Router();
+const notificacaoController = require('../controller/notificacoesController');
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
-routes.get('/notificacoes', isAuthenticated, notificacaoController.listarNotificacoes);
-routes.patch('/notificacoes/:id/lida', isAuthenticated, notificacaoController.marcarComoLida);
+router.use(authenticateToken);
+
+router.get('/', notificacaoController.listarNotificacoes);
+
+router.patch('/:id/lida', notificacaoController.marcarComoLida);
+
+module.exports = router;

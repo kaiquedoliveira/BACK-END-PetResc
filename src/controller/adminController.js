@@ -14,22 +14,22 @@ const listarTodosPedidos = async (req, res) => {
                         email: true,
                         telefone: true,
                         cpf: true,
-                        endereco: true 
+                        // CORREÇÃO: Selecionando campos reais do seu schema
+                        cidade: true,
+                        estado: true
                     }
                 },
-                //  Traz dados do Animal
                 animal: {
                     select: {
                         nome: true,
-                        foto: true, // ou photoURL
+                        photoURL: true, // Ajustado para bater com seu Schema (photoURL)
                         especie: true,
-                        // Traz dados do Dono do Animal 
                         account: {
                             select: {
-                                nome: true, 
+                                nome: true, // Nome do responsável/ONG
                                 email: true,
                                 ong: {
-                                    select: { nome: true } 
+                                    select: { nome: true } // Nome Fantasia da ONG (se houver)
                                 }
                             }
                         }
@@ -38,16 +38,17 @@ const listarTodosPedidos = async (req, res) => {
             }
         });
 
-        // Formatando para o Frontend do Admin receber uma tabela limpa
         const pedidosFormatados = pedidos.map(pedido => ({
             id: pedido.id,
             status: pedido.status,
             data: pedido.dataPedido,
             candidato: {
                 nome: pedido.candidato.nome,
-                contato: pedido.candidato.telefone || pedido.candidato.email
+                contato: pedido.candidato.telefone || pedido.candidato.email,
+                local: `${pedido.candidato.cidade || 'N/A'} - ${pedido.candidato.estado || 'UF'}` // Formatação legível
             },
             animal: pedido.animal.nome,
+            // Se for ONG, mostra o nome da ONG, senão mostra o nome da pessoa responsável
             responsavel: pedido.animal.account.ong?.nome || pedido.animal.account.nome
         }));
 
@@ -57,7 +58,6 @@ const listarTodosPedidos = async (req, res) => {
         res.status(500).json({ error: 'Erro ao listar todos os pedidos.' });
     }
 };
-
 module.exports = {
     listarTodosPedidos
 };

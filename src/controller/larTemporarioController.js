@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { criarNotificacao } = require('../controller/notificacoesController');
+ const { sendEmail } = require('../services/emailService');
 
 // GET padrao
 const getAll = async (req, res) => {
@@ -8,10 +10,9 @@ const getAll = async (req, res) => {
   try {
     let  whereClause = {};
     if ( usuarioLogado.role === 'PUBLICO') {
-      whereClause = { usuarioId: usuarioLogado.id };
+      whereClause = { usuarioId: usuarioLogado.id }; // Público vê só os seus
     } else if (usuarioLogado.role === 'ONG') {
-      whereClause = { ongId: usuarioLogado.id };
-
+      whereClause = { ongId: usuarioLogado.id }; // ONG vê só os dela
     }
       const lares = await prisma.larTemporario.findMany({
       where: whereClause,
@@ -93,7 +94,6 @@ const create = async (req, res) => {
                 usuarioId: usuarioLogado.id,
                 ongId: ongIdFinal,
                 animalId: animalId ? parseInt(animalId) : null,
-                // Agora usamos os dados da ficha completa que buscamos
                 nomeCompleto: fullUserAccount.nome,
                 cpf: fullUserAccount.cpf,
                 email: fullUserAccount.email,
@@ -111,21 +111,54 @@ const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const usuarioLogado = req.user;
+    
+    if (!['APROVADO', 'REJEITADO'].includes(status)) {
+        return res.status(400).json({ error: 'Status inválido. Use APROVADO ou REJEITADO.' });
+    }
+
     try {
-        const lar = await prisma.larTemporario.findUnique({ where: { id: parseInt(id) } });
+        const lar = await prisma.larTemporario.findUnique({ 
+            where: { id: parseInt(id) },
+            include: { usuario: true, animal: true } 
+        });
+        
         if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
         
         if (usuarioLogado.role !== 'ADMIN' && lar.ongId !== usuarioLogado.id) {
             return res.status(403).json({ error: 'Acesso negado. Permissão insuficiente.' });
         }
         
-        const larAtualizado = await prisma.larTemporario.update({ where: { id: parseInt(id) }, data: { status } });
+        const larAtualizado = await prisma.larTemporario.update({ 
+            where: { id: parseInt(id) }, 
+            data: { 
+                status,
+                aprovadoPorId: usuarioLogado.id
+            } 
+        });
+
+        const acao = status === 'APROVADO' ? 'aprovado' : 'rejeitado';
+        const animalNome = lar.animal?.nome || 'o animal';
+        
+        const titulo = `Status do Lar Temporário: ${status}`;
+        const mensagem = `Seu pedido de lar temporário para ${animalNome} foi ${acao}.`;
+        await criarNotificacao(lar.usuarioId, titulo, mensagem, 'LAR_TEMPORARIO'); 
+        
+        const assuntoEmail = `Atualização Lar Temporário: ${status}`;
+        const htmlEmail = `
+            <h2>Olá, ${lar.usuario.nome}.</h2>
+            <p>O status da sua candidatura de Lar Temporário para <strong>${animalNome}</strong> foi atualizado para: <strong>${status}</strong>.</p>
+            <p>Acesse o aplicativo para mais detalhes.</p>
+        `;
+        
+        sendEmail(lar.usuario.email, assuntoEmail, htmlEmail);
+        
         res.json(larAtualizado);
+
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: 'Erro ao atualizar status' });
     }
 };
-
 // DELETE por id
 const remove = async (req, res) => {
     const { id } = req.params;
