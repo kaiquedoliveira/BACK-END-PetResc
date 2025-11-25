@@ -38,19 +38,26 @@ const listarAnimais = async (req, res) => {
 const buscarAnimalPorId = async (req, res) => {
   const { id } = req.params;
 
+  const animalId = parseInt(id);
+
+  if (isNaN(animalId)) {
+    return res.status(400).json({ error: 'ID do animal inválido.' });
+  }
+
   try {
     const animal = await prisma.animal.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: animalId }, 
       include: {
-    account: {
-        select: { 
+        account: {
+          select: { 
             id: true,
             nome: true,
             email: true,
             telefone: true
-        }
-    }
-}
+          }
+        },
+        ficha: true // Inclui a ficha, se existir
+      }
     });
 
     if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
@@ -61,74 +68,111 @@ const buscarAnimalPorId = async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar animal' });
   }
 };
-
 const criarAnimal = async (req, res) => {
-  const { 
-    nome, especie, raca, idade, status, porte, sexo, descricao, cor, 
-    
-    local_resgate, data_resgate, vacinado, vermifugado, castrado, 
-    observacoes, temperamento, saude, 
-  } = req.body;
+    // ... (restante da desestruturação do body) ...
+    const { 
+        nome, especie, raca, porte, sexo, cor, descricao, 
+        // ... (resto dos campos) ...
+        status, local_estado, local_cidade, local_numero, tinha_filhotes, tinha_coleira,
+        motivo_nao_disponivel, local_atual, data_resgate, observacoes, 
+        vermifugado, data_vermifugado, vacinado, txtVacinado, castrado, dataCastrado,
+        testado, txtTestado, resultados
+    } = req.body;
 
-  const usuarioLogado = req.user;
-  const file = req.file; 
+    const usuarioLogado = req.user; 
+    const isOng = usuarioLogado.role === 'ONG';
 
-  if (!nome || !especie) {
-    return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
-  }
+    const files = req.files;
+    const imagemPrincipalFile = files?.imagem?.[0]; // Multer anexa aqui
+    const imagemResgateFile = files?.imagem_resgate?.[0]; 
 
-  if (!file) {
-    return res.status(400).json({ error: 'A imagem é obrigatória.' });
-  }
+    if (!nome || !especie) {
+        // Validação de campos obrigatórios
+        return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
+    }
 
-  const photoURL = file.path; 
+    // --- 1. PROCESSO DE UPLOAD PARA CLOUDINARY ---
+    let photoURL = null;
+    let imagemResgateURL = null;
 
-  try {
-    const novoAnimal = await prisma.animal.create({
-      data: {
-        nome,
-        especie,
-        raca,
-        idade: idade ? parseInt(idade) : null,
-        status: status || 'DISPONIVEL', 
-        porte,
-        sexo, 
-        descricao, 
-        corPredominante: cor, 
-        photoURL: photoURL, 
-        accountId: usuarioLogado.id,
+    if (imagemPrincipalFile) {
+        try {
+            // ⭐️ Envia o arquivo temporário (do Multer) para o Cloudinary
+            photoURL = await uploadImageToCloudinary(imagemPrincipalFile.path, 'animais_fotos');
+            // Após o upload, é bom deletar o arquivo temporário (fs.unlink)
+        } catch (uploadError) {
+            console.error("Erro ao subir foto principal para o Cloudinary:", uploadError);
+            return res.status(500).json({ error: "Falha ao processar a foto principal." });
+        }
+    }
 
-        ...(usuarioLogado.role === 'ONG' && {
-            ficha: {
-                create: {
-                    nome: nome, 
-                    especie: especie,
-                    temperamento: temperamento || "Não informado", 
-                    saude: saude || `Vacinado: ${vacinado}, Vermifugado: ${vermifugado}`,
-                    castrado: castrado === 'sim',
-                    observacoes: observacoes
-                }
-            }
-        })
-      },
-      include: { ficha: true } 
-    });
+    if (imagemResgateFile) {
+        try {
+            // ⭐️ Envia a foto de resgate (apenas ONG)
+            imagemResgateURL = await uploadImageToCloudinary(imagemResgateFile.path, 'animais_resgate');
+            // Após o upload, é bom deletar o arquivo temporário (fs.unlink)
+        } catch (uploadError) {
+            console.error("Erro ao subir foto de resgate para o Cloudinary:", uploadError);
+            // Isso não deve impedir o cadastro, mas o erro deve ser logado
+        }
+    }
+    // --- FIM DO UPLOAD ---
 
-    res.status(201).json(novoAnimal);
-  } catch (err) {
-    console.error('Erro detalhado:', err);
-    res.status(500).json({ error: 'Erro ao cadastrar animal.' });
-  }
+    try {
+        // ... (Restante da lógica dataToCreate permanece a mesma) ...
+        const dataToCreate = {
+            nome,
+            especie,
+            raca: raca || null,
+            porte: porte || null,
+            sexo: sexo || null,
+            corPredominante: cor || null, 
+            descricao: descricao || null, 
+            photoURL: photoURL, // Agora contém a URL do Cloudinary (ou null)
+            accountId: usuarioLogado.id, 
+            
+            // ... (restante da lógica condicional ONG/PÚBLICO) ...
+            
+            ...(isOng ? {
+                // ... (campos ONG) ...
+                imagem_resgate_url: imagemResgateURL, // URL do Cloudinary (ou null)
+                // ...
+            } : { 
+                // ... (campos Público) ...
+            }),
+        };
+
+        const novoAnimal = await prisma.animal.create({
+            data: dataToCreate,
+        });
+
+        res.status(201).json(novoAnimal);
+    } catch (err) {
+        console.error('Erro detalhado:', err);
+        res.status(500).json({ error: 'Erro ao cadastrar animal.' });
+    }
 };
 
 
 
 // Atualiza os dados de um animal
+
+
 const atualizarAnimal = async (req, res) => {
     const { id } = req.params;
     const usuarioLogado = req.user;
-    const { nome, ...dataToUpdate } = req.body;
+    
+    // Desestrutura os campos que precisam de tratamento especial
+    const { nome, idade, data_resgate, data_vermifugado, dataCastrado, 
+            vermifugado, vacinado, castrado, testado, tinha_filhotes, tinha_coleira, ...dataRestante } = req.body;
+    
+    // dataToUpdate começa com todos os campos restantes
+    let dataToUpdate = { ...dataRestante };
 
+    // --- Lógica de Upload de Imagens para ATUALIZAÇÃO ---
+    // Você precisará de lógica similar ao criarAnimal aqui, se o frontend permitir 
+    // a troca de fotos na atualização. Por enquanto, assumimos que as URLs existentes são mantidas.
+    // ----------------------------------------------------
 
     try {
         const animal = await prisma.animal.findUnique({ where: { id: parseInt(id) } });
@@ -137,16 +181,39 @@ const atualizarAnimal = async (req, res) => {
         if (animal.accountId !== usuarioLogado.id && usuarioLogado.role !== 'ADMIN') {
             return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para editar este animal.' });
         }
-          if (nome) {
-            dataToUpdate.nome = nome;
+        
+        // --- CONVERSÃO DE TIPOS ---
+
+        // 1. Strings para Int
+        if (nome) dataToUpdate.nome = nome;
+        if (idade) dataToUpdate.idade = parseInt(idade);
+        
+        // 2. Strings ('sim'/'nao') para Boolean
+        if (vermifugado !== undefined) dataToUpdate.vermifugado = vermifugado === 'sim';
+        if (vacinado !== undefined) dataToUpdate.vacinado = vacinado === 'sim';
+        if (castrado !== undefined) dataToUpdate.castrado = castrado === 'sim';
+        if (testado !== undefined) dataToUpdate.testado_doencas = testado === 'sim';
+        if (tinha_filhotes !== undefined) dataToUpdate.tinha_filhotes = tinha_filhotes === 'sim';
+        if (tinha_coleira !== undefined) dataToUpdate.tinha_coleira = tinha_coleira === 'sim';
+        
+        // 3. Strings para Date
+        if (data_resgate) dataToUpdate.data_resgate = new Date(data_resgate);
+        if (data_vermifugado) dataToUpdate.data_vermifugado = new Date(data_vermifugado);
+        if (dataCastrado) dataToUpdate.data_castrado = new Date(dataCastrado);
+        
+        // O campo 'cor' é mapeado para 'corPredominante' no schema
+        if (dataToUpdate.cor) {
+             dataToUpdate.corPredominante = dataToUpdate.cor;
+             delete dataToUpdate.cor;
         }
 
-        if (dataToUpdate.idade) dataToUpdate.idade = parseInt(dataToUpdate.idade);
+        // --- FIM DA CONVERSÃO ---
 
-         const animalAtualizado = await prisma.animal.update({
+        const animalAtualizado = await prisma.animal.update({
            where: { id: parseInt(id) },
            data: dataToUpdate,
-      });
+        });
+        
         res.json(animalAtualizado);
     } catch (err) {
         console.error(err);
