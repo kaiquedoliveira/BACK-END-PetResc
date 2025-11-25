@@ -2,19 +2,13 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { sendEmail } = require('../services/emailService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 const JWT_RESET_SECRET = process.env.JWT_RESET_SECRET || 'pet_reset_secret_super_seguro';
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-let transporter = nodemailer.createTransport({
-  service: 'gmail', 
-  secure: false,
-  auth: {
-    user: 'petresc.company@gmail.com', 
-    pass: 'shim xlzu koms bfkq',
-  }      
-});
+
 
 exports.register = async (req, res) => {
     const { nome, email, cpf, password, telefone } = req.body;
@@ -48,24 +42,18 @@ exports.register = async (req, res) => {
         return res.status(500).json({ error: 'Erro ao criar conta.' });
     }
 
-    try {
-        await transporter.sendMail({
-          from: '"PetResc" <petresc.company@gmail.com>', 
-          to: email, 
-          subject: `Boas Vindas ao PetResc, ${nome}!`,
-          html: `
-            <h2>Que bom que se juntou à nós, ${nome}!</h2>
-            <p>Desfrute de nossos recursos para encontrar seu novo melhor amigo.</p>
-            <p>Agradecemos seu cadastro!</p>
-          `,
-        });
-    } catch (emailErr) {
-        console.error("AVISO: Conta criada, mas e-mail de boas-vindas falhou:", emailErr);
-    }
+    const assunto = `Boas Vindas ao PetResc, ${nome}!`;
+    const html = `
+        <h2>Que bom que se juntou à nós, ${nome}!</h2>
+        <p>Desfrute de nossos recursos para encontrar seu novo melhor amigo.</p>
+        <p>Agradecemos seu cadastro!</p>
+    `;
+    
+    // Não usamos await para não travar a resposta do servidor se o email demorar
+    sendEmail(email, assunto, html);
 
     res.status(201).json(novaConta);
 };
-
 exports.registerOng = async (req, res) => {
     const { 
       name, 
@@ -115,24 +103,17 @@ exports.registerOng = async (req, res) => {
         return res.status(500).json({ error: 'Erro ao criar conta de ONG.' });
     }
 
-    try {
-        await transporter.sendMail({
-          from: '"PetResc" <petresc.company@gmail.com>',
-          to: email, 
-          subject: `Boas Vindas ao PetResc, ${nomeOng}!`,
-          html: `
-            <h2>Que bom que se juntou à nós, ${nomeOng}!</h2>
-            <p>Sua plataforma para conectar pets a novos lares.</p>
-            <p>Agradecemos seu cadastro!</p>
-          `,
-        });
-    } catch (emailErr) {
-        console.error(`AVISO: Conta da ONG ${nomeOng} criada, mas e-mail de boas-vindas falhou:`, emailErr);
-    }
+    const assunto = `Boas Vindas ao PetResc, ${nomeOng}!`;
+    const html = `
+        <h2>Que bom que se juntou à nós, ${nomeOng}!</h2>
+        <p>Sua plataforma para conectar pets a novos lares.</p>
+        <p>Agradecemos seu cadastro!</p>
+    `;
+    sendEmail(email, assunto, html);
     
     res.status(201).json(novaContaOng);
 };
-
+ 
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -193,28 +174,25 @@ exports.forgotPassword = async (req, res) => {
 
     const token = jwt.sign({ userId: account.id }, JWT_RESET_SECRET, { expiresIn: '15m' });
 
-    const resetLink = `http://localhost:5173/redefinir-senha?token=${token}`;
-
+          const resetLink = `${frontendUrl}/redefinir-senha?token=${token}`;
    
 
-    let info = await transporter.sendMail({
-      from: '"PetResc" <petresc.senai@gmail.com>',
-      to: email, 
-      subject: 'Redefinição de Senha - PetResc',
-      html: `
-        <h2>Redefinição de Senha</h2>
-        <p>Você solicitou a redefinição da sua senha. Clique no link abaixo para criar uma nova senha:</p>
-        <a href="${resetLink}" target="_blank">Redefinir Senha</a>
-        <p>Este link expira em 15 minutos.</p>
-      `,
-    });
+    const assunto = 'Redefinição de Senha - PetResc';
+        const html = `
+            <h2>Redefinição de Senha</h2>
+            <p>Você solicitou a redefinição da sua senha. Clique no link abaixo para criar uma nova senha:</p>
+            <a href="${resetLink}" target="_blank">Redefinir Senha</a>
+            <p>Este link expira em 15 minutos.</p>
+        `;
 
-    res.json({ message: "Se este e-mail estiver cadastrado, um link será enviado." });
+        await sendEmail(email, assunto, html);
 
-  } catch (err) {
-     console.error(err);
-    res.status(500).json({ error: "Erro ao processar solicitação" });
-  }
+        res.json({ message: "Se este e-mail estiver cadastrado, um link será enviado." });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao processar solicitação" });
+    }
 };
 
 exports.atualizarPerfil = async (req, res) => {
