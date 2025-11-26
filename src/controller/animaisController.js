@@ -149,7 +149,7 @@ const criarAnimal = async (req, res) => {
                 motivo_nao_disponivel,
                 local_atual,
                 imagem_resgate_url: imagemResgateURL, // URL do Cloudinary (ou null)
-                cuidados_veterinarios: observacoes || null, 
+                cuidadosVeterinarios: observacoes || null,
                 vermifugado: vermifugado === 'sim',
                 data_vermifugado: vermifugado === 'sim' && data_vermifugado ? new Date(data_vermifugado) : null,
                 vacinado: vacinado === 'sim',
@@ -164,7 +164,7 @@ const criarAnimal = async (req, res) => {
                 // Campos Usuário Comum (Encontrado)
                 status: 'ENCONTRADO', 
                 idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
-                cuidados_veterinarios: cuidado || null, 
+                cuidadosVeterinarios: cuidado || null,
                 sociabilidade: sociabilidade || null,
             }),
         };

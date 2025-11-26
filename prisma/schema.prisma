@@ -104,8 +104,7 @@ model Animal {
   local_atual           String?   @map("localAtual")
   imagem_resgate_url    String?   @map("imagemResgateURL") // Segunda Imagem
   
-  cuidados_veterinarios String?   @map("cuidadosVeterinarios")
-  
+ cuidadosVeterinarios String? @map("cuidados_veterinarios")  
   vermifugado           Boolean?
   data_vermifugado      DateTime? @map("dataVermifugado")
   vacinado              Boolean?
