@@ -9,10 +9,18 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: {
-        folder: 'petresc_animais', 
-        allowed_formats: ['jpg', 'png', 'jpeg'],
+    params: (req, file) => {
+        let folderName = 'petresc_animais'; 
+        
+        if (file.fieldname === 'imagem_resgate') {
+            folderName = 'petresc_resgate';
+        }
+        
+        return {
+            folder: folderName, 
+            allowed_formats: ['jpg', 'png', 'jpeg'],
+            public_id: `${file.fieldname}-${Date.now()}`
+        };
     },
 });
-
 module.exports = storage;

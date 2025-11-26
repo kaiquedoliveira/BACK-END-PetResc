@@ -16,8 +16,13 @@ router.post('/:id/favoritar', animaisController.favoritarAnimal);
 router.delete('/:id/desfavoritar', animaisController.desfavoritarAnimal);
 
 
-router.post('/', authorizeRole(['ONG', 'PUBLICO']), upload.single('imagem'), animaisController.criarAnimal); 
-
+router.post('/', authorizeRole(['ONG', 'PUBLICO']), 
+    upload.fields([
+        { name: 'imagem', maxCount: 1 },         
+        { name: 'imagem_resgate', maxCount: 1 }  
+    ]), 
+    animaisController.criarAnimal
+);
 router.put('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.atualizarAnimal);
 router.delete('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.deletarAnimal);
 

@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const fs = require('fs');
 
 
 // Lista todos os animais ou com filtros
@@ -67,80 +68,108 @@ const buscarAnimalPorId = async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar animal' });
   }
 };
+
 const criarAnimal = async (req, res) => {
-    // ... (restante da desestruturação do body) ...
+    // 1. DESESTRUTURAÇÃO DOS DADOS
     const { 
         nome, especie, raca, porte, sexo, cor, descricao, 
-        // ... (resto dos campos) ...
+        idade, cuidado, sociabilidade, // Campos Público
         status, local_estado, local_cidade, local_numero, tinha_filhotes, tinha_coleira,
-        motivo_nao_disponivel, local_atual, data_resgate, observacoes, 
+        motivo_nao_disponivel, local_atual, data_resgate, observacoes, // Campos Resgate/Local
         vermifugado, data_vermifugado, vacinado, txtVacinado, castrado, dataCastrado,
-        testado, txtTestado, resultados
+        testado, txtTestado, resultados // Campos Saúde
     } = req.body;
 
     const usuarioLogado = req.user; 
     const isOng = usuarioLogado.role === 'ONG';
 
     const files = req.files;
-    const imagemPrincipalFile = files?.imagem?.[0]; // Multer anexa aqui
+    
+    // ⭐️ AJUSTE CRÍTICO: LER A URL FINAL DIRETAMENTE DO OBJETO ARQUIVO DO MULTER
+    // Assumimos que o Multer Cloudinary coloca a URL final em .path (ou .url)
+    const imagemPrincipalFile = files?.imagem?.[0];
     const imagemResgateFile = files?.imagem_resgate?.[0]; 
 
     if (!nome || !especie) {
-        // Validação de campos obrigatórios
         return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
     }
 
-    // --- 1. PROCESSO DE UPLOAD PARA CLOUDINARY ---
-    let photoURL = null;
-    let imagemResgateURL = null;
-
-    if (imagemPrincipalFile) {
-        try {
-            // ⭐️ Envia o arquivo temporário (do Multer) para o Cloudinary
-            photoURL = await uploadImageToCloudinary(imagemPrincipalFile.path, 'animais_fotos');
-            // Após o upload, é bom deletar o arquivo temporário (fs.unlink)
-        } catch (uploadError) {
-            console.error("Erro ao subir foto principal para o Cloudinary:", uploadError);
-            return res.status(500).json({ error: "Falha ao processar a foto principal." });
+    // --- 2. EXTRAÇÃO DE URL E LIMPEZA DE ARQUIVOS TEMPORÁRIOS ---
+    
+    // photoURL será a URL do Cloudinary se existir, ou null se for opcional
+    let photoURL = imagemPrincipalFile ? imagemPrincipalFile.path : null; 
+    let imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
+    
+    // Caso o Multer tenha salvo o arquivo localmente antes de enviar ao Cloudinary, 
+    // precisamos deletar o arquivo temporário para não entupir o disco.
+    try {
+        if (imagemPrincipalFile && imagemPrincipalFile.path) {
+            // Verifica se o arquivo existe e deleta
+            if (fs.existsSync(imagemPrincipalFile.path)) {
+                fs.unlinkSync(imagemPrincipalFile.path); 
+            }
         }
-    }
-
-    if (imagemResgateFile) {
-        try {
-            // ⭐️ Envia a foto de resgate (apenas ONG)
-            imagemResgateURL = await uploadImageToCloudinary(imagemResgateFile.path, 'animais_resgate');
-            // Após o upload, é bom deletar o arquivo temporário (fs.unlink)
-        } catch (uploadError) {
-            console.error("Erro ao subir foto de resgate para o Cloudinary:", uploadError);
-            // Isso não deve impedir o cadastro, mas o erro deve ser logado
+        if (imagemResgateFile && imagemResgateFile.path) {
+            if (fs.existsSync(imagemResgateFile.path)) {
+                fs.unlinkSync(imagemResgateFile.path); 
+            }
         }
+    } catch (err) {
+        console.error("Erro ao deletar arquivo temporário:", err);
+        // O erro de deletar não deve travar o cadastro
     }
-    // --- FIM DO UPLOAD ---
+    // --- FIM DA LIMPEZA ---
+
 
     try {
-        // ... (Restante da lógica dataToCreate permanece a mesma) ...
+        // 3. CONSTRUÇÃO DO OBJETO dataToCreate
         const dataToCreate = {
+            // Campos Base
             nome,
             especie,
             raca: raca || null,
             porte: porte || null,
             sexo: sexo || null,
-            corPredominante: cor || null, 
+            corPredominante: cor || null, // Mapeado de 'cor'
             descricao: descricao || null, 
-            photoURL: photoURL, // Agora contém a URL do Cloudinary (ou null)
+            photoURL: photoURL, // URL do Cloudinary (ou null)
             accountId: usuarioLogado.id, 
             
-            // ... (restante da lógica condicional ONG/PÚBLICO) ...
-            
+            // Lógica Condicional (ONG vs. Público)
             ...(isOng ? {
-                // ... (campos ONG) ...
+                // Campos ONG (Resgate, Saúde)
+                status: status || 'DISPONIVEL', 
+                idade: idade ? parseInt(idade) : null, 
+                data_resgate: data_resgate ? new Date(data_resgate) : null,
+                local_estado, 
+                local_cidade, 
+                local_numero,
+                tinha_filhotes: tinha_filhotes === 'sim',
+                tinha_coleira: tinha_coleira === 'sim',
+                motivo_nao_disponivel,
+                local_atual,
                 imagem_resgate_url: imagemResgateURL, // URL do Cloudinary (ou null)
-                // ...
+                cuidados_veterinarios: observacoes || null, 
+                vermifugado: vermifugado === 'sim',
+                data_vermifugado: vermifugado === 'sim' && data_vermifugado ? new Date(data_vermifugado) : null,
+                vacinado: vacinado === 'sim',
+                vacinas_texto: vacinado === 'sim' ? txtVacinado : null,
+                castrado: castrado === 'sim',
+                data_castrado: castrado === 'sim' && dataCastrado ? new Date(dataCastrado) : null,
+                testado_doencas: testado === 'sim',
+                testes_texto: testado === 'sim' ? txtTestado : null,
+                resultados_testes: testado === 'sim' ? resultados : null,
+                
             } : { 
-                // ... (campos Público) ...
+                // Campos Usuário Comum (Encontrado)
+                status: 'ENCONTRADO', 
+                idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
+                cuidados_veterinarios: cuidado || null, 
+                sociabilidade: sociabilidade || null,
             }),
         };
 
+        // 4. CRIAÇÃO NO BANCO DE DADOS
         const novoAnimal = await prisma.animal.create({
             data: dataToCreate,
         });
@@ -151,6 +180,8 @@ const criarAnimal = async (req, res) => {
         res.status(500).json({ error: 'Erro ao cadastrar animal.' });
     }
 };
+
+
 
 
 
