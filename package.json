@@ -1,6 +1,17 @@
 {
+  "name": "pet-co",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "prisma migrate deploy && node src/server.js",
+    "postinstall": "prisma generate",
+    "dev": "nodemon src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "dependencies": {
-    "@prisma/client": "^6.18.0",
+    "@prisma/client": "6.18.0",
+    "prisma": "6.18.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^1.41.3",
@@ -12,17 +23,6 @@
     "node": "^24.9.0",
     "nodemailer": "^7.0.10",
     "pg": "^8.16.3"
-  },
-  "name": "pet-co",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "start": "node src/server.js",
-    "start": "prisma migrate deploy && node src/server.js",
-    "postinstall": "prisma generate",
-    "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -40,8 +40,6 @@
   "homepage": "https://github.com/ryujoao/pet-co#readme",
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/nodemailer": "^7.0.3",
-    "prisma": "^6.18.0",
-    "@prisma/client": "6.18.0"
+    "@types/nodemailer": "^7.0.3"
   }
 }
