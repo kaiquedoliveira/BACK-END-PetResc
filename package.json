@@ -29,15 +29,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ryujoao/pet-co.git"
+    "url": "git+https://github.com/kaiquedoliveira/BACK-END-PetResc.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/ryujoao/pet-co/issues"
+    "url": "https://github.com/kaiquedoliveira/BACK-END-PetResc/issues"
   },
-  "homepage": "https://github.com/ryujoao/pet-co#readme",
+  "homepage": "https://github.com/kaiquedoliveira/BACK-END-PetResc#readme",
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.3"
