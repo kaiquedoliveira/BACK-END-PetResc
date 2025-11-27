@@ -13,7 +13,10 @@ const listarAnimais = async (req, res) => {
         AND: [
           especie ? { especie: { contains: especie, mode: 'insensitive' } } : {},
           porte ? { porte: { contains: porte, mode: 'insensitive' } } : {},
-          status ? { status: { equals: status } } : { status: 'DISPONIVEL' },
+          status 
+            ? { status: { equals: status } } 
+            : { status: { in: ['DISPONIVEL', 'ENCONTRADO'] } },
+        
           sexo ? { sexo: { equals: sexo } } : {}
         ]
       },
