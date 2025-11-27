@@ -87,7 +87,7 @@ const criarAnimal = async (req, res) => {
 
     const files = req.files;
     
-   
+    // O Multer Cloudinary coloca a URL final em .path (ou .url)
     const imagemPrincipalFile = files?.imagem?.[0];
     const imagemResgateFile = files?.imagem_resgate?.[0]; 
 
@@ -95,31 +95,12 @@ const criarAnimal = async (req, res) => {
         return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
     }
 
-   
+    // Pega a URL do Cloudinary se o arquivo existir
     let photoURL = imagemPrincipalFile ? imagemPrincipalFile.path : null; 
     let imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
     
     try {
-        if (imagemPrincipalFile && imagemPrincipalFile.path) {
-            // Verifica se o arquivo existe e deleta
-            if (fs.existsSync(imagemPrincipalFile.path)) {
-                fs.unlinkSync(imagemPrincipalFile.path); 
-            }
-        }
-        if (imagemResgateFile && imagemResgateFile.path) {
-            if (fs.existsSync(imagemResgateFile.path)) {
-                fs.unlinkSync(imagemResgateFile.path); 
-            }
-        }
-    } catch (err) {
-        console.error("Erro ao deletar arquivo temporário:", err);
-        // O erro de deletar não deve travar o cadastro
-    }
-    // --- FIM DA LIMPEZA ---
-
-
-    try {
-        // 3. CONSTRUÇÃO DO OBJETO dataToCreate
+        // --- CONSTRUÇÃO DO OBJETO dataToCreate ---
         const dataToCreate = {
             // Campos Base
             nome,
@@ -127,9 +108,9 @@ const criarAnimal = async (req, res) => {
             raca: raca || null,
             porte: porte || null,
             sexo: sexo || null,
-            corPredominante: cor || null, // Mapeado de 'cor'
+            corPredominante: cor || null, 
             descricao: descricao || null, 
-            photoURL: photoURL, // URL do Cloudinary (ou null)
+            photoURL: photoURL, 
             accountId: usuarioLogado.id, 
             
             // Lógica Condicional (ONG vs. Público)
@@ -145,7 +126,7 @@ const criarAnimal = async (req, res) => {
                 tinha_coleira: tinha_coleira === 'sim',
                 motivo_nao_disponivel,
                 local_atual,
-                imagem_resgate_url: imagemResgateURL, // URL do Cloudinary (ou null)
+                imagem_resgate_url: imagemResgateURL,
                 cuidados_veterinarios: observacoes || null,
                 vermifugado: vermifugado === 'sim',
                 data_vermifugado: vermifugado === 'sim' && data_vermifugado ? new Date(data_vermifugado) : null,
@@ -158,12 +139,12 @@ const criarAnimal = async (req, res) => {
                 resultados_testes: testado === 'sim' ? resultados : null,
                 
             } : { 
-                // Campos Usuário Comum (Encontrado)
-               status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
-
-               idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
-               cuidados_veterinarios: cuidado || null,
-               sociabilidade: sociabilidade || null,
+                // Campos Usuário Comum
+                // Se o usuário mandou "DISPONIVEL" (quer doar), respeita. Se não, é "ENCONTRADO".
+                status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
+                idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
+                cuidados_veterinarios: cuidado || null,
+                sociabilidade: sociabilidade || null,
             }),
         };
 
@@ -172,14 +153,22 @@ const criarAnimal = async (req, res) => {
             data: dataToCreate,
         });
 
+        // Tenta enviar e-mail (opcional, não trava se falhar)
+        try {
+             // await sendEmail(...)
+        } catch (emailError) {
+             console.error("Erro ao enviar email:", emailError.message);
+        }
+
         res.status(201).json(novoAnimal);
+
     } catch (err) {
         console.error('Erro detalhado:', err);
+        // Se der erro no banco, o ideal seria deletar a imagem do Cloudinary para não deixar lixo,
+        // mas isso é uma otimização para depois.
         res.status(500).json({ error: 'Erro ao cadastrar animal.' });
     }
 };
-
-
 
 
 
