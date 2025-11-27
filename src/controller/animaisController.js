@@ -73,102 +73,83 @@ const buscarAnimalPorId = async (req, res) => {
 };
 
 const criarAnimal = async (req, res) => {
-    const { 
-        nome, especie, raca, porte, sexo, cor, descricao, 
-        idade, cuidado, sociabilidade, // Campos Público
-        status, local_estado, local_cidade, local_numero, tinha_filhotes, tinha_coleira,
-        motivo_nao_disponivel, local_atual, data_resgate, observacoes, // Campos Resgate/Local
-        vermifugado, data_vermifugado, vacinado, txtVacinado, castrado, dataCastrado,
-        testado, txtTestado, resultados // Campos Saúde
-    } = req.body;
+  const files = req.files;
 
-    const usuarioLogado = req.user; 
-    const isOng = usuarioLogado.role === 'ONG';
+  const imagemPrincipalFile = files?.imagem?.[0];
+  const imagemResgateFile   = files?.imagem_resgate?.[0];
 
-    const files = req.files;
+  if (!nome || !especie) {
+    return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
+  }
+
+  const photoURL = imagemPrincipalFile ? imagemPrincipalFile.path : null;
+  const imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
+
+  try {
     
-    // O Multer Cloudinary coloca a URL final em .path (ou .url)
-    const imagemPrincipalFile = files?.imagem?.[0];
-    const imagemResgateFile = files?.imagem_resgate?.[0]; 
+    const dataToCreate = {
+    nome,
+    especie,
+    raca: raca || null,
+    porte: porte || null,
+    sexo: sexo || null,
+    descricao: descricao || null,
+    idade: idade ? parseInt(idade) : null,
+    corPredominante: cor || null,
+    photoURL: photoURL,
+    status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
 
-    if (!nome || !especie) {
-        return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
-    }
+    // Resgate
+    data_resgate: data_resgate ? new Date(data_resgate) : null,
+    local_estado: local_estado || null,
+    local_cidade: local_cidade || null,
+    local_numero: local_numero || null,
+    tinha_filhotes: tinha_filhotes === 'sim',
+    tinha_coleira: tinha_coleira === 'sim',
+    motivo_nao_disponivel: motivo_nao_disponivel || null,
+    local_atual: local_atual || null,
+    imagem_resgate_url: imagemResgateURL || null,
 
-    // Pega a URL do Cloudinary se o arquivo existir
-    let photoURL = imagemPrincipalFile ? imagemPrincipalFile.path : null; 
-    let imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
-    
-    try {
-        // --- CONSTRUÇÃO DO OBJETO dataToCreate ---
-        const dataToCreate = {
-            // Campos Base
-            nome,
-            especie,
-            raca: raca || null,
-            porte: porte || null,
-            sexo: sexo || null,
-            corPredominante: cor || null, 
-            descricao: descricao || null, 
-            photoURL: photoURL, 
-            accountId: usuarioLogado.id, 
-            
-            // Lógica Condicional (ONG vs. Público)
-            ...(isOng ? {
-                // Campos ONG (Resgate, Saúde)
-                status: status || 'DISPONIVEL', 
-                idade: idade ? parseInt(idade) : null, 
-                data_resgate: data_resgate ? new Date(data_resgate) : null,
-                local_estado, 
-                local_cidade, 
-                local_numero,
-                tinha_filhotes: tinha_filhotes === 'sim',
-                tinha_coleira: tinha_coleira === 'sim',
-                motivo_nao_disponivel,
-                local_atual,
-                imagem_resgate_url: imagemResgateURL,
-                cuidados_veterinarios: observacoes || null,
-                vermifugado: vermifugado === 'sim',
-                data_vermifugado: vermifugado === 'sim' && data_vermifugado ? new Date(data_vermifugado) : null,
-                vacinado: vacinado === 'sim',
-                vacinas_texto: vacinado === 'sim' ? txtVacinado : null,
-                castrado: castrado === 'sim',
-                data_castrado: castrado === 'sim' && dataCastrado ? new Date(dataCastrado) : null,
-                testado_doencas: testado === 'sim',
-                testes_texto: testado === 'sim' ? txtTestado : null,
-                resultados_testes: testado === 'sim' ? resultados : null,
-                
-            } : { 
-                // Campos Usuário Comum
-                // Se o usuário mandou "DISPONIVEL" (quer doar), respeita. Se não, é "ENCONTRADO".
-                status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
-                idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
-                cuidados_veterinarios: cuidado || null,
-                sociabilidade: sociabilidade || null,
-            }),
-        };
+    // Saúde
+    cuidados_veterinarios: observacoes || cuidado || null,
 
-        // 4. CRIAÇÃO NO BANCO DE DADOS
-        const novoAnimal = await prisma.animal.create({
-            data: dataToCreate,
-        });
+    vermifugado: vermifugado === 'sim',
+    data_vermifugado:
+        vermifugado === 'sim' && data_vermifugado
+            ? new Date(data_vermifugado)
+            : null,
 
-        // Tenta enviar e-mail (opcional, não trava se falhar)
-        try {
-             // await sendEmail(...)
-        } catch (emailError) {
-             console.error("Erro ao enviar email:", emailError.message);
-        }
+    vacinado: vacinado === 'sim',
+    vacinas_texto: vacinas_texto || null,
 
-        res.status(201).json(novoAnimal);
+    castrado: castrado === 'sim',
+    data_castrado:
+        castrado === 'sim' && data_castrado
+            ? new Date(data_castrado)
+            : null,
 
-    } catch (err) {
-        console.error('Erro detalhado:', err);
-        // Se der erro no banco, o ideal seria deletar a imagem do Cloudinary para não deixar lixo,
-        // mas isso é uma otimização para depois.
-        res.status(500).json({ error: 'Erro ao cadastrar animal.' });
-    }
+    testado_doencas: testado === 'sim',
+    testes_texto: testes || null,
+    resultados_testes: resultados || null,
+
+    sociabilidade: sociabilidade || null,
+
+    accountId: usuarioLogado.id
 };
+
+
+    const novoAnimal = await prisma.animal.create({
+      data: dataToCreate,
+    });
+
+    res.status(201).json(novoAnimal);
+
+  } catch (err) {
+    console.error('Erro ao criar animal:', err);
+    res.status(500).json({ error: 'Erro ao cadastrar animal.' });
+  }
+};
+
 
 
 
