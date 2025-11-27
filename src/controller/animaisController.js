@@ -73,7 +73,6 @@ const buscarAnimalPorId = async (req, res) => {
 };
 
 const criarAnimal = async (req, res) => {
-    // 1. DESESTRUTURAÇÃO DOS DADOS
     const { 
         nome, especie, raca, porte, sexo, cor, descricao, 
         idade, cuidado, sociabilidade, // Campos Público
@@ -88,8 +87,7 @@ const criarAnimal = async (req, res) => {
 
     const files = req.files;
     
-    // ⭐️ AJUSTE CRÍTICO: LER A URL FINAL DIRETAMENTE DO OBJETO ARQUIVO DO MULTER
-    // Assumimos que o Multer Cloudinary coloca a URL final em .path (ou .url)
+   
     const imagemPrincipalFile = files?.imagem?.[0];
     const imagemResgateFile = files?.imagem_resgate?.[0]; 
 
@@ -97,14 +95,10 @@ const criarAnimal = async (req, res) => {
         return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
     }
 
-    // --- 2. EXTRAÇÃO DE URL E LIMPEZA DE ARQUIVOS TEMPORÁRIOS ---
-    
-    // photoURL será a URL do Cloudinary se existir, ou null se for opcional
+   
     let photoURL = imagemPrincipalFile ? imagemPrincipalFile.path : null; 
     let imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
     
-    // Caso o Multer tenha salvo o arquivo localmente antes de enviar ao Cloudinary, 
-    // precisamos deletar o arquivo temporário para não entupir o disco.
     try {
         if (imagemPrincipalFile && imagemPrincipalFile.path) {
             // Verifica se o arquivo existe e deleta
@@ -165,10 +159,11 @@ const criarAnimal = async (req, res) => {
                 
             } : { 
                 // Campos Usuário Comum (Encontrado)
-                status: 'ENCONTRADO', 
-                idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
-                cuidados_veterinarios: cuidado || null,
-                sociabilidade: sociabilidade || null,
+               status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
+
+               idade: isNaN(parseInt(idade)) ? null : parseInt(idade),
+               cuidados_veterinarios: cuidado || null,
+               sociabilidade: sociabilidade || null,
             }),
         };
 
