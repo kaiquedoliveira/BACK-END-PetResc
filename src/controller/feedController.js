@@ -2,56 +2,39 @@ const { PrismaClient, StatusAdocao } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const getFeed = async (req, res) => {
-  console.log("--- LOG DEBUG FEED ---");
-  console.log("Query Params recebidos:", req.query);
-
-  const { especie, porte, sexo } = req.query;
+  const { especie, porte, status, sexo } = req.query;
 
   try {
-    const whereClause = {
-      
-      ...(especie && { especie: { contains: especie, mode: 'insensitive' } }),
-      ...(porte && { porte: { contains: porte, mode: 'insensitive' } }),
-      ...(sexo && { sexo: { equals: sexo } }),
-    };
-
-    console.log("Where Clause Gerada:", JSON.stringify(whereClause, null, 2));
-
     const animais = await prisma.animal.findMany({
-      where: whereClause,
+      where: {
+        AND: [
+          especie ? { especie: { contains: especie, mode: 'insensitive' } } : {},
+          porte ? { porte: { contains: porte, mode: 'insensitive' } } : {},
+          
+          
+          status 
+            ? { status: { equals: status } } 
+            : { status: { in: ['DISPONIVEL', 'ENCONTRADO'] } },
+
+          sexo ? { sexo: { equals: sexo } } : {}
+        ]
+      },
       include: {
         account: {
-          select: {
-            ong: {
-              select: {
+            select: { 
                 id: true,
                 nome: true,
-                endereco: true,
-              },
-            },
-          },
-        },
+                email: true,
+                telefone: true
+            }
+        }
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: 'desc' } 
     });
-
-    console.log(`Animais encontrados: ${animais.length}`);
-
-    const feedFormatado = animais.map((animal) => {
-      const ongInfo = animal.account?.ong || null;
-      const { account, ...animalData } = animal;
-      return {
-        ...animalData,
-        ong: ongInfo,
-      };
-    });
-
-    res.json(feedFormatado);
-  } catch (error) {
-    console.error("ERRO CRÍTICO NO FEED:", error);
-    res.status(500).json({ error: "Erro ao carregar feed de animais", details: error.message });
+    res.json(animais);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar animais' });
   }
 };
 
