@@ -228,17 +228,55 @@ enum StatusAdocao {
 }
 
 model PedidoAdocao {
-  id         Int          @id @default(autoincrement())
-  status     StatusPedido @default(PENDENTE) // Usando Enum
-  dataPedido DateTime     @default(now())
+  id          Int      @id @default(autoincrement())
+  status      StatusPedido @default(PENDENTE)
+  dataPedido  DateTime @default(now())
 
-  animalId Int
-  animal   Animal @relation("AnimalPedidos", fields: [animalId], references: [id])
+  animalId    Int
+  animal      Animal   @relation("AnimalPedidos", fields: [animalId], references: [id])
 
   candidatoId Int
-  candidato   Account @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
+  account     Account  @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
+
+  formulario  FormularioAdocao? 
 
   @@map("pedidos_adocao")
+}
+
+model FormularioAdocao {
+  id              Int     @id @default(autoincrement())
+  pedidoAdocaoId  Int     @unique // Relação 1:1 obrigatória
+  pedido          PedidoAdocao @relation(fields: [pedidoAdocaoId], references: [id], onDelete: Cascade)
+
+  tipoMoradia     String 
+  possuiQuintal   Boolean
+  quintalTelado   Boolean?
+  janelasTeladas  Boolean? 
+  moradiaPropria  Boolean
+
+  pessoasNaCasa   Int
+  todosConcordam  Boolean
+  criancasEmCasa  Boolean
+  alergias        Boolean
+
+  horasSozinho    Int     
+  rotinaPasseios  String? 
+  quemCuidara     String  
+  
+  possuiOutrosAnimais Boolean
+  historicoAnimais    String? 
+
+  teveAnimaisAntes    Boolean
+  temVeterinario      Boolean?
+  
+  cienteCustos        Boolean 
+
+  motivoAdocao        String  
+  observacoes         String?
+
+  createdAt       DateTime @default(now())
+
+  @@map("formularios_adocao")
 }
 
 model Favorito {

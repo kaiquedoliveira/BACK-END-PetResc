@@ -2,50 +2,81 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { criarNotificacao } = require('../controller/notificacoesController');
 const { sendEmail } = require('../services/emailService');
-
 const criarPedido = async (req, res) => {
-    const { animalId } = req.body;
-    const candidatoId = req.user.id; 
-    const usuarioLogado = req.user;
+  const { animalId, respostasFormulario } = req.body; 
+  const candidatoId = req.user.id;
 
-    if (!animalId) return res.status(400).json({ error: 'O ID do animal é obrigatório.' });
+  if (!animalId || !respostasFormulario) {
+    return res.status(400).json({ error: "Dados incompletos para o pedido." });
+  }
 
-    try {
-        const animal = await prisma.animal.findUnique({ 
-            where: { id: animalId },
-            include: { account: { select: { nome: true } } } 
-        });
-        
-        if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
-        if (animal.status !== 'DISPONIVEL') return res.status(400).json({ error: 'Indisponível.' });
+  try {
+    const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
+    if (!animal) return res.status(404).json({ error: "Animal não encontrado." });
 
-        const pedidoExistente = await prisma.pedidoAdocao.findFirst({
-            where: { animalId: animalId, candidatoId: candidatoId },
-        });
-        if (pedidoExistente) return res.status(400).json({ error: 'Pedido já realizado.' });
-        
-        const novoPedido = await prisma.pedidoAdocao.create({
-            data: { animalId, candidatoId },
-            include: { animal: true },
-        });
-
-        const emailCandidato = (await prisma.account.findUnique({ where: { id: candidatoId } })).email;
-        
-        const assunto = `Pedido Recebido: ${animal.nome} 🐶`;
-        const mensagem = `
-            <h2>Olá, ${usuarioLogado.name}!</h2>
-            <p>Recebemos seu interesse em adotar o(a) <strong>${animal.nome}</strong>.</p>
-            <p><strong>Próximo Passo:</strong> A ONG/Responsável (${animal.account.nome}) irá entrar em contato com você via <strong>WhatsApp</strong> para uma breve conversa/entrevista.</p>
-            <p>Fique atento ao seu telefone!</p>
-        `;
-
-        sendEmail(emailCandidato, assunto, mensagem);
-
-        res.status(201).json(novoPedido);
-    } catch (error) {
-        console.error("Erro ao criar pedido:", error);
-        res.status(500).json({ error: 'Erro interno.' });
+    if (animal.accountId === candidatoId) {
+      return res.status(400).json({ error: "Você não pode adotar seu próprio animal." });
     }
+
+    const pedidoExistente = await prisma.pedidoAdocao.findFirst({
+        where: {
+            animalId: parseInt(animalId),
+            candidatoId: candidatoId,
+            status: 'PENDENTE'
+        }
+    });
+
+    if (pedidoExistente) {
+        return res.status(400).json({ error: "Você já tem um pedido pendente para este animal." });
+    }
+
+    const novoPedido = await prisma.pedidoAdocao.create({
+      data: {
+        animalId: parseInt(animalId),
+        candidatoId: candidatoId,
+        status: 'PENDENTE',
+        
+        formulario: {
+            create: {
+                tipoMoradia: respostasFormulario.tipoMoradia,
+                possuiQuintal: respostasFormulario.possuiQuintal === 'sim', // Tratamento de booleano se vier string
+                quintalTelado: respostasFormulario.quintalTelado === 'sim',
+                janelasTeladas: respostasFormulario.janelasTeladas === 'sim',
+                moradiaPropria: respostasFormulario.moradiaPropria === 'sim',
+                
+                pessoasNaCasa: parseInt(respostasFormulario.pessoasNaCasa),
+                todosConcordam: respostasFormulario.todosConcordam === 'sim',
+                criancasEmCasa: respostasFormulario.criancasEmCasa === 'sim',
+                alergias: respostasFormulario.alergias === 'sim',
+
+                horasSozinho: parseInt(respostasFormulario.horasSozinho),
+                rotinaPasseios: respostasFormulario.rotinaPasseios,
+                quemCuidara: respostasFormulario.quemCuidara,
+
+                possuiOutrosAnimais: respostasFormulario.possuiOutrosAnimais === 'sim',
+                historicoAnimais: respostasFormulario.historicoAnimais,
+
+                teveAnimaisAntes: respostasFormulario.teveAnimaisAntes === 'sim',
+                temVeterinario: respostasFormulario.temVeterinario === 'sim',
+
+                cienteCustos: respostasFormulario.cienteCustos === 'sim',
+
+                motivoAdocao: respostasFormulario.motivoAdocao,
+                observacoes: respostasFormulario.observacoes
+            }
+        }
+      },
+      include: {
+        formulario: true 
+      }
+    });
+
+    res.status(201).json({ message: "Pedido enviado com sucesso!", pedido: novoPedido });
+
+  } catch (error) {
+    console.error("Erro ao criar pedido de adoção:", error);
+    res.status(500).json({ error: "Erro interno ao processar adoção." });
+  }
 };
 
 
