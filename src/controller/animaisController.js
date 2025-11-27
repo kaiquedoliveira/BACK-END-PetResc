@@ -73,7 +73,41 @@ const buscarAnimalPorId = async (req, res) => {
 };
 
 const criarAnimal = async (req, res) => {
+  const usuarioLogado = req.user; // pega o usuário logado
   const files = req.files;
+
+  // Desestrutura os campos vindos do body
+  const {
+    nome,
+    especie,
+    raca,
+    porte,
+    sexo,
+    descricao,
+    idade,
+    cor,
+    status,
+    data_resgate,
+    local_estado,
+    local_cidade,
+    local_numero,
+    tinha_filhotes,
+    tinha_coleira,
+    motivo_nao_disponivel,
+    local_atual,
+    observacoes,
+    cuidado,
+    vermifugado,
+    data_vermifugado,
+    vacinado,
+    vacinas_texto,
+    castrado,
+    data_castrado,
+    testado,
+    testes,
+    resultados,
+    sociabilidade
+  } = req.body;
 
   const imagemPrincipalFile = files?.imagem?.[0];
   const imagemResgateFile   = files?.imagem_resgate?.[0];
@@ -86,71 +120,66 @@ const criarAnimal = async (req, res) => {
   const imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
 
   try {
-    
     const dataToCreate = {
-    nome,
-    especie,
-    raca: raca || null,
-    porte: porte || null,
-    sexo: sexo || null,
-    descricao: descricao || null,
-    idade: idade ? parseInt(idade) : null,
-    corPredominante: cor || null,
-    photoURL: photoURL,
-    status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
+      nome,
+      especie,
+      raca: raca || null,
+      porte: porte || null,
+      sexo: sexo || null,
+      descricao: descricao || null,
+      idade: idade ? parseInt(idade) : null,
+      corPredominante: cor || null,
+      photoURL,
+      status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
 
-    // Resgate
-    data_resgate: data_resgate ? new Date(data_resgate) : null,
-    local_estado: local_estado || null,
-    local_cidade: local_cidade || null,
-    local_numero: local_numero || null,
-    tinha_filhotes: tinha_filhotes === 'sim',
-    tinha_coleira: tinha_coleira === 'sim',
-    motivo_nao_disponivel: motivo_nao_disponivel || null,
-    local_atual: local_atual || null,
-    imagem_resgate_url: imagemResgateURL || null,
+      // Resgate
+      data_resgate: data_resgate ? new Date(data_resgate) : null,
+      local_estado: local_estado || null,
+      local_cidade: local_cidade || null,
+      local_numero: local_numero || null,
+      tinha_filhotes: tinha_filhotes === 'sim',
+      tinha_coleira: tinha_coleira === 'sim',
+      motivo_nao_disponivel: motivo_nao_disponivel || null,
+      local_atual: local_atual || null,
+      imagem_resgate_url: imagemResgateURL || null,
 
-    // Saúde
-    cuidados_veterinarios: observacoes || cuidado || null,
+      // Saúde
+      cuidados_veterinarios: observacoes || cuidado || null,
 
-    vermifugado: vermifugado === 'sim',
-    data_vermifugado:
+      vermifugado: vermifugado === 'sim',
+      data_vermifugado:
         vermifugado === 'sim' && data_vermifugado
-            ? new Date(data_vermifugado)
-            : null,
+          ? new Date(data_vermifugado)
+          : null,
 
-    vacinado: vacinado === 'sim',
-    vacinas_texto: vacinas_texto || null,
+      vacinado: vacinado === 'sim',
+      vacinas_texto: vacinas_texto || null,
 
-    castrado: castrado === 'sim',
-    data_castrado:
+      castrado: castrado === 'sim',
+      data_castrado:
         castrado === 'sim' && data_castrado
-            ? new Date(data_castrado)
-            : null,
+          ? new Date(data_castrado)
+          : null,
 
-    testado_doencas: testado === 'sim',
-    testes_texto: testes || null,
-    resultados_testes: resultados || null,
+      testado_doencas: testado === 'sim',
+      testes_texto: testes || null,
+      resultados_testes: resultados || null,
 
-    sociabilidade: sociabilidade || null,
+      sociabilidade: sociabilidade || null,
 
-    accountId: usuarioLogado.id
-};
-
+      accountId: usuarioLogado.id
+    };
 
     const novoAnimal = await prisma.animal.create({
       data: dataToCreate,
     });
 
     res.status(201).json(novoAnimal);
-
   } catch (err) {
-    console.error('Erro ao criar animal:', err);
-    res.status(500).json({ error: 'Erro ao cadastrar animal.' });
+    console.error('Erro ao cadastrar animal (DETALHADO):', err);
+    return res.status(500).json({ error: err.message || 'Erro ao cadastrar animal.' });
   }
 };
-
-
 
 
 // Atualiza os dados de um animal
@@ -333,7 +362,7 @@ const obterEstatisticasAnimaisPorStatus = async (req, res) => {
             where: {
                 accountId: userId, // Filtra apenas pelos animais da ONG logada
             },
-            _count: {
+            _ccount: {
                 status: true,
             },
         });
