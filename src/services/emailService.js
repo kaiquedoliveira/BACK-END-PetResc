@@ -1,13 +1,6 @@
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST,
-  port: process.env.MAIL_PORT,
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  }      
-});
+
 
 const sendEmail = async (to, subject, html) => {
     try {
@@ -23,4 +16,18 @@ const sendEmail = async (to, subject, html) => {
     }
 };
 
-module.exports = { sendEmail };
+const transporter = nodemailer.createTransport({
+  host: process.env.MAIL_HOST, // smtp.gmail.com
+  port: Number(process.env.MAIL_PORT), // 587
+  secure: false, // ⚠️ OBRIGATÓRIO ser false para porta 587
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+  },
+  tls: {
+    // ⚠️ O PULO DO GATO: Isso evita erros de certificado no Render
+    rejectUnauthorized: false,
+    ciphers: "SSLv3"
+  }
+});
+module.exports = { sendEmail, transporter };

@@ -26,6 +26,9 @@ model Account {
   cidade      String?
   estado      String?
 
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
   // Relações com perfis que têm dados EXCLUSIVOS
   admin   Admin?
   ong     Ong?

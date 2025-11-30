@@ -160,40 +160,6 @@ exports.me = async (req, res) => {
 };
 
 
-exports.forgotPassword = async (req, res) => {
- const { email } = req.body;
-
- try {
-  const account = await prisma.account.findUnique({
-     where: { email },
-     });
-
-      if (!account) {
-       return res.json({ message: "Se este e-mail estiver cadastrado, um link será enviado." });
-     }
-
-    const token = jwt.sign({ userId: account.id }, JWT_RESET_SECRET, { expiresIn: '15m' });
-
-          const resetLink = `${frontendUrl}/redefinir-senha?token=${token}`;
-   
-
-    const assunto = 'Redefinição de Senha - PetResc';
-        const html = `
-            <h2>Redefinição de Senha</h2>
-            <p>Você solicitou a redefinição da sua senha. Clique no link abaixo para criar uma nova senha:</p>
-            <a href="${resetLink}" target="_blank">Redefinir Senha</a>
-            <p>Este link expira em 15 minutos.</p>
-        `;
-
-        await sendEmail(email, assunto, html);
-
-        res.json({ message: "Se este e-mail estiver cadastrado, um link será enviado." });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Erro ao processar solicitação" });
-    }
-};
 
 exports.atualizarPerfil = async (req, res) => {
     
@@ -236,31 +202,121 @@ exports.atualizarPerfil = async (req, res) => {
     }
 };
 
-exports.resetPassword = async (req, res) => {
-  const { token, newPassword } = req.body;
 
-  if (!token || !newPassword) {
-    return res.status(400).json({ error: "Token e nova senha são obrigatórios" });
-  }
 
-  try {
-    const payload = jwt.verify(token, JWT_RESET_SECRET);
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    await prisma.account.update({
-      where: { id: payload.userId },
-      data: { password: hashedPassword },
-    });
-
-    res.json({ message: "Senha redefinida com sucesso!" });
-
-  } catch (err) {
-    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: "Token inválido ou expirado." });
-    }
-    console.error(err);
-    res.status(500).json({ error: "Erro ao redefinir senha." });
-  }
+const generateOTP = () => {
+    return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
+exports.forgotPassword = async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        const account = await prisma.account.findUnique({ where: { email } });
+
+        if (!account) {
+            // Retorna sucesso fake para segurança (não revelar emails cadastrados)
+            return res.json({ message: "Código enviado se o e-mail existir." });
+        }
+
+        // Gera o código de 4 dígitos
+        const otp = generateOTP();
+        
+        // Define validade (15 minutos)
+        const expiry = new Date();
+        expiry.setMinutes(expiry.getMinutes() + 15);
+
+        // Salva no banco (usando os campos que você já criou)
+        // Se você usou 'resetToken' no schema, vamos salvar o OTP lá.
+        // Se ainda não criou, crie: resetToken String?, resetTokenExpiry DateTime?
+        await prisma.account.update({
+            where: { id: account.id },
+            data: {
+                resetToken: otp, 
+                resetTokenExpiry: expiry
+            }
+        });
+
+        const assunto = 'Código de Recuperação - PetResc';
+        const html = `
+            <div style="font-family: Arial, sans-serif; text-align: center;">
+                <h2>Recuperação de Senha</h2>
+                <p>Use o código abaixo para redefinir sua senha:</p>
+                <h1 style="background: #f4f4f4; padding: 10px; display: inline-block; letter-spacing: 5px;">${otp}</h1>
+                <p>Este código expira em 15 minutos.</p>
+                <p>Se não foi você, ignore este e-mail.</p>
+            </div>
+        `;
+
+     
+        await sendEmail(email, assunto, html);
+
+        res.json({ message: "Código enviado!" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao processar solicitação" });
+    }
+};
+
+exports.verifyCode = async (req, res) => {
+    const { email, code } = req.body;
+
+    try {
+        const account = await prisma.account.findFirst({
+            where: {
+                email: email,
+                resetToken: code,
+                resetTokenExpiry: { gt: new Date() } // Verifica se não expirou
+            }
+        });
+
+        if (!account) {
+            return res.status(400).json({ error: "Código inválido ou expirado." });
+        }
+
+        res.json({ message: "Código válido!" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao verificar código." });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+        return res.status(400).json({ error: "Dados incompletos." });
+    }
+
+    try {
+        const account = await prisma.account.findFirst({
+            where: {
+                email: email,
+                resetToken: code,
+                resetTokenExpiry: { gt: new Date() }
+            }
+        });
+
+        if (!account) {
+            return res.status(400).json({ error: "Código inválido ou expirado." });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await prisma.account.update({
+            where: { id: account.id },
+            data: {
+                password: hashedPassword,
+                resetToken: null,       // Limpa o código usado
+                resetTokenExpiry: null
+            },
+        });
+
+        res.json({ message: "Senha redefinida com sucesso!" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao redefinir senha." });
+    }
+};
