@@ -1,7 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { criarNotificacao } = require('../controller/notificacoesController');
+const { criarNotificacao } = require('../controller/notificacoesController'); // Se tiver
 const { sendEmail } = require('../services/emailService');
+
+// 1. CRIAR PEDIDO (Candidato -> Envia interesse)
 const criarPedido = async (req, res) => {
   const { animalId, respostasFormulario } = req.body; 
   const candidatoId = req.user.id;
@@ -30,6 +32,9 @@ const criarPedido = async (req, res) => {
         return res.status(400).json({ error: "Você já tem um pedido pendente para este animal." });
     }
 
+    // Helper para converter "sim" em true
+    const isSim = (val) => val === 'sim' || val === true;
+
     const novoPedido = await prisma.pedidoAdocao.create({
       data: {
         animalId: parseInt(animalId),
@@ -38,28 +43,28 @@ const criarPedido = async (req, res) => {
         
         formulario: {
             create: {
-                tipoMoradia: respostasFormulario.tipoMoradia,
-                possuiQuintal: respostasFormulario.possuiQuintal === 'sim', // Tratamento de booleano se vier string
-                quintalTelado: respostasFormulario.quintalTelado === 'sim',
-                janelasTeladas: respostasFormulario.janelasTeladas === 'sim',
-                moradiaPropria: respostasFormulario.moradiaPropria === 'sim',
+                tipoMoradia: respostasFormulario.tipoMoradia || "Não informado",
+                possuiQuintal: isSim(respostasFormulario.possuiQuintal),
+                quintalTelado: isSim(respostasFormulario.quintalTelado),
+                janelasTeladas: isSim(respostasFormulario.janelasTeladas),
+                moradiaPropria: isSim(respostasFormulario.moradiaPropria),
                 
-                pessoasNaCasa: parseInt(respostasFormulario.pessoasNaCasa),
-                todosConcordam: respostasFormulario.todosConcordam === 'sim',
-                criancasEmCasa: respostasFormulario.criancasEmCasa === 'sim',
-                alergias: respostasFormulario.alergias === 'sim',
+                pessoasNaCasa: parseInt(respostasFormulario.pessoasNaCasa) || 1,
+                todosConcordam: isSim(respostasFormulario.todosConcordam),
+                criancasEmCasa: isSim(respostasFormulario.criancasEmCasa),
+                alergias: isSim(respostasFormulario.alergias),
 
-                horasSozinho: parseInt(respostasFormulario.horasSozinho),
+                horasSozinho: parseInt(respostasFormulario.horasSozinho) || 0,
                 rotinaPasseios: respostasFormulario.rotinaPasseios,
                 quemCuidara: respostasFormulario.quemCuidara,
 
-                possuiOutrosAnimais: respostasFormulario.possuiOutrosAnimais === 'sim',
-                historicoAnimais: respostasFormulario.historicoAnimais,
+                possuiOutrosAnimais: isSim(respostasFormulario.possuiOutrosAnimais),
+                historicoAnimais: respostasFormulario.historicoAnimais, // String (JSON)
 
-                teveAnimaisAntes: respostasFormulario.teveAnimaisAntes === 'sim',
-                temVeterinario: respostasFormulario.temVeterinario === 'sim',
+                teveAnimaisAntes: isSim(respostasFormulario.teveAnimaisAntes),
+                temVeterinario: isSim(respostasFormulario.temVeterinario),
 
-                cienteCustos: respostasFormulario.cienteCustos === 'sim',
+                cienteCustos: isSim(respostasFormulario.cienteCustos),
 
                 motivoAdocao: respostasFormulario.motivoAdocao,
                 observacoes: respostasFormulario.observacoes
@@ -79,21 +84,21 @@ const criarPedido = async (req, res) => {
   }
 };
 
-
+// 2. LISTAR MEUS PEDIDOS (Visão do Candidato)
 const listarMeusPedidos = async (req, res) => {
     const candidatoId = req.user.id;
 
     try {
         const meusPedidos = await prisma.pedidoAdocao.findMany({
-            where: {
-                candidatoId: candidatoId,
-            },
+            where: { candidatoId: candidatoId },
             include: { 
-                animal: true,
+                animal: {
+                    include: {
+                        account: { select: { nome: true, telefone: true, email: true } }
+                    }
+                }
             },
-            orderBy: {
-                dataPedido: 'desc', 
-            }
+            orderBy: { dataPedido: 'desc' }
         });
 
         res.status(200).json(meusPedidos);
@@ -103,12 +108,14 @@ const listarMeusPedidos = async (req, res) => {
     }
 };
 
-
+// 3. LISTAR PEDIDOS PARA GERENCIAMENTO (Visão do Dono/ONG/Admin)
+// Lista TODOS os pedidos que chegaram para os animais desse usuário
 const listarPedidosParaGerenciamento = async (req, res) => {
     const usuarioLogado = req.user;
     let whereClause = {};
 
     try {
+        // Se for ADMIN vê tudo. Se for ONG ou PUBLICO, vê só dos seus animais.
         if (usuarioLogado.role !== 'ADMIN') {
             whereClause = {
                 animal: {
@@ -120,21 +127,8 @@ const listarPedidosParaGerenciamento = async (req, res) => {
         const pedidos = await prisma.pedidoAdocao.findMany({
             where: whereClause,
             include: {
-                animal: {
-                    include: {
-                        account: {
-                            select: { nome: true, email: true, telefone: true }
-                        }
-                    }
-                },
-                candidato: {
-                    select: {
-                        id: true,
-                        email: true,
-                        nome: true,  
-                        telefone: true,
-                    }
-                }
+                animal: { select: { id: true, nome: true, photoURL: true } },
+                candidato: { select: { id: true, nome: true, email: true } }
             },
             orderBy: { dataPedido: 'desc' }
         });
@@ -145,13 +139,52 @@ const listarPedidosParaGerenciamento = async (req, res) => {
     }
 };
 
+// 4. LISTAR PEDIDOS DE UM ANIMAL ESPECÍFICO (Para a tela GerenciarAdocao)
+const listarPedidosPorAnimal = async (req, res) => {
+    const { animalId } = req.params;
+    const userId = req.user.id;
+
+    try {
+        const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
+        
+        if (!animal) return res.status(404).json({ error: "Animal não encontrado" });
+        
+        // Verifica permissão: ADMIN ou DONO do animal (seja ONG ou PUBLICO)
+        if (req.user.role !== 'ADMIN' && animal.accountId !== userId) {
+            return res.status(403).json({ error: "Acesso negado. Você não é o responsável por este animal." });
+        }
+
+        const pedidos = await prisma.pedidoAdocao.findMany({
+            where: { animalId: parseInt(animalId) },
+            include: {
+                formulario: true,
+                candidato: {      
+                    select: { nome: true, email: true, telefone: true } 
+                },
+                // Inclui dados do dono apenas para debug se precisar, mas o foco é o candidato
+                account: { 
+                    select: { nome: true } 
+                }
+            },
+            orderBy: { dataPedido: 'desc' }
+        });
+
+        res.status(200).json(pedidos);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao buscar pedidos do animal." });
+    }
+};
+
+// 5. ATUALIZAR STATUS (Aprovar/Recusar)
 const atualizarStatusPedido = async (req, res) => {
     const { id: pedidoId } = req.params;
     const { status } = req.body; 
     const { id: gestorId, role } = req.user; 
 
     if (!['APROVADO', 'RECUSADO'].includes(status)) {
-        return res.status(400).json({ error: "Status inválido. Use 'APROVADO' ou 'RECUSADO'." });
+        return res.status(400).json({ error: "Status inválido." });
     }
 
     try {
@@ -159,79 +192,63 @@ const atualizarStatusPedido = async (req, res) => {
             where: { id: parseInt(pedidoId) },
             include: { 
                 animal: true, 
-                candidato: { select: { email: true, nome: true } } 
+                candidato: { select: { email: true, nome: true, id: true } } 
             }
         });
 
-        if (!pedido) {
-            return res.status(404).json({ error: 'Pedido não encontrado.' });
-        }
+        if (!pedido) return res.status(404).json({ error: 'Pedido não encontrado.' });
 
+        // Verifica permissão: ADMIN ou DONO do animal
         if (role !== 'ADMIN' && pedido.animal.accountId !== gestorId) {
-            return res.status(403).json({ error: 'Acesso negado. Você não tem permissão para gerenciar este pedido.' });
+            return res.status(403).json({ error: 'Acesso negado.' });
         }
         
         if (pedido.status !== 'PENDENTE') {
-             return res.status(400).json({ error: `Este pedido já foi ${pedido.status.toLowerCase()}.` });
+             return res.status(400).json({ error: `Este pedido já foi finalizado.` });
         }
 
+        // Atualiza status do pedido
+        await prisma.pedidoAdocao.update({
+            where: { id: parseInt(pedidoId) },
+            data: { status }
+        });
 
-        let mensagemNotificacao;
-        let assuntoEmail;
-        let corpoEmail;
-
+        // Se APROVADO, atualiza o animal para ADOTADO
         if (status === 'APROVADO') {
-            await prisma.$transaction([
-                prisma.pedidoAdocao.update({
-                    where: { id: parseInt(pedidoId) },
-                    data: { status: 'APROVADO' }
-                }),
-                prisma.animal.update({
-                    where: { id: pedido.animalId },
-                    data: { status: 'ADOTADO' } 
-                })
-            ]);
-
-            mensagemNotificacao = `Parabéns! Seu pedido de adoção para ${pedido.animal.nome} foi APROVADO.`;
-            
-            assuntoEmail = `Adoção Aprovada: ${pedido.animal.nome} é seu! 🐾`;
-            corpoEmail = `
-                <h2>Parabéns, ${pedido.candidato.nome}!</h2>
-                <p>Temos uma ótima notícia: Seu pedido de adoção para o animal <strong>${pedido.animal.nome}</strong> foi <strong>APROVADO</strong>!</p>
-                <p>A ONG entrará em contato em breve pelo seu telefone para combinar a retirada.</p>
-                <p>Obrigado por adotar!</p>
-            `;
-            
-        } else { 
-            await prisma.pedidoAdocao.update({
-                where: { id: parseInt(pedidoId) },
-                data: { status: 'RECUSADO' }
+            await prisma.animal.update({
+                where: { id: pedido.animalId },
+                data: { status: 'ADOTADO' } // Ajustado para Enum ou String do seu banco
             });
-
-            mensagemNotificacao = `Seu pedido de adoção para ${pedido.animal.nome} foi RECUSADO.`;
-            
-            assuntoEmail = `Atualização sobre a adoção de ${pedido.animal.nome}`;
-            corpoEmail = `
-                <h2>Olá, ${pedido.candidato.nome}.</h2>
-                <p>Infelizmente, seu pedido de adoção para o animal <strong>${pedido.animal.nome}</strong> não pôde ser aprovado neste momento.</p>
-                <p>Não desanime! Existem muitos outros animais na plataforma esperando por um lar.</p>
-            `;
+            // Opcional: Recusar automaticamente outros pedidos pendentes deste animal?
         }
 
-        sendEmail(pedido.candidato.email, assuntoEmail, corpoEmail);
+        // --- ENVIO DE E-MAIL (Sem Await para não travar) ---
+        const assuntoEmail = status === 'APROVADO' 
+            ? `Adoção Aprovada: ${pedido.animal.nome} 🐾` 
+            : `Atualização sobre a adoção de ${pedido.animal.nome}`;
+            
+        const corpoEmail = status === 'APROVADO'
+            ? `<h2>Parabéns!</h2><p>Seu pedido para <strong>${pedido.animal.nome}</strong> foi aprovado!</p>`
+            : `<h2>Olá.</h2><p>Infelizmente seu pedido para <strong>${pedido.animal.nome}</strong> não seguiu adiante.</p>`;
 
+        sendEmail(pedido.candidato.email, assuntoEmail, corpoEmail)
+            .catch(err => console.error("Erro ao enviar email de status:", err));
+
+        // --- NOTIFICAÇÃO (Se tiver o sistema) ---
+        /*
         await criarNotificacao(
-            pedido.candidatoId,
-            `Pedido de Adoção ${status}`,
-            mensagemNotificacao,
+            pedido.candidato.id,
+            `Pedido ${status}`,
+            `Seu pedido para ${pedido.animal.nome} foi ${status}.`,
             'ADOCAO'
         );
+        */
         
-        res.status(200).json({ message: `Pedido ${status.toLowerCase()} com sucesso!` });
+        res.status(200).json({ message: `Pedido ${status} com sucesso!` });
 
     } catch (error) {
-        console.error("Erro ao atualizar status do pedido:", error);
-        res.status(500).json({ error: 'Erro interno ao atualizar o pedido.' });
+        console.error("Erro ao atualizar status:", error);
+        res.status(500).json({ error: 'Erro interno ao atualizar.' });
     }
 };
 
@@ -239,5 +256,6 @@ module.exports = {
     criarPedido,
     listarMeusPedidos,
     listarPedidosParaGerenciamento,
+    listarPedidosPorAnimal,
     atualizarStatusPedido
 };
