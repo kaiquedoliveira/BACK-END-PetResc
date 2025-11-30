@@ -7,7 +7,9 @@
     "start": "prisma migrate deploy && node src/server.js",
     "postinstall": "prisma generate",
     "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+      "smtp": "node testSmtp.js"
+
   },
   "dependencies": {
     "@prisma/client": "6.18.0",
