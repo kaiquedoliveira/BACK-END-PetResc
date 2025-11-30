@@ -1,33 +1,35 @@
 const nodemailer = require('nodemailer');
 
-
-
-const sendEmail = async (to, subject, html) => {
-    try {
-        await transporter.sendMail({
-            from: `"PetResc" <${process.env.MAIL_USER}>`,
-            to: to,
-            subject: subject,
-            html: html,
-        });
-        console.log(`E-mail enviado para ${to}`);
-    } catch (error) {
-        console.error("Erro ao enviar e-mail:", error);
-    }
-};
-
 const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST, // smtp.gmail.com
-  port: Number(process.env.MAIL_PORT), // 587
-  secure: false, // ⚠️ OBRIGATÓRIO ser false para porta 587
+  host: process.env.MAIL_HOST,
+  port: Number(process.env.MAIL_PORT), 
+  secure: false, 
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
   },
   tls: {
-    // ⚠️ O PULO DO GATO: Isso evita erros de certificado no Render
-    rejectUnauthorized: false,
-    ciphers: "SSLv3"
-  }
+    rejectUnauthorized: false, 
+    ciphers: "SSLv3"           
+  },
+  connectionTimeout: 10000, 
 });
-module.exports = { sendEmail, transporter };
+
+const sendEmail = async (to, subject, html) => {
+    try {
+        console.log(`Tentando enviar e-mail para: ${to}...`);
+        const info = await transporter.sendMail({
+            from: `"PetResc" <${process.env.MAIL_USER}>`,
+            to: to,
+            subject: subject,
+            html: html,
+        });
+        console.log(` E-mail enviado: ${info.messageId}`);
+        return true;
+    } catch (error) {
+        console.error(` Falha no envio de e-mail: ${error.message}`);
+        return false; 
+    }
+};
+
+module.exports = { sendEmail };
