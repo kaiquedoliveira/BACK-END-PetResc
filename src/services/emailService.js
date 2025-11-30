@@ -27,7 +27,7 @@ const sendEmail = async (to, subject, html) => {
         console.log(` E-mail enviado: ${info.messageId}`);
         return true;
     } catch (error) {
-        console.error(` Falha no envio de e-mail: ${error.message}`);
+        console.error(`Falha no envio de e-mail: ${error.message}`);
         return false; 
     }
 };
