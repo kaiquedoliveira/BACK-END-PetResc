@@ -2,14 +2,15 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
-const { sendEmail } = require('../services/emailService');
+const { sendEmail } = require('../services/emailService'); // RESEND AQUI
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 const JWT_RESET_SECRET = process.env.JWT_RESET_SECRET || 'pet_reset_secret_super_seguro';
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-
-
+/* ===========================================================
+   REGISTRO DE USUÁRIO PÚBLICO
+=========================================================== */
 exports.register = async (req, res) => {
     const { nome, email, cpf, password, telefone } = req.body;
 
@@ -49,11 +50,15 @@ exports.register = async (req, res) => {
         <p>Agradecemos seu cadastro!</p>
     `;
     
-    // Não usamos await para não travar a resposta do servidor se o email demorar
+    // Agora usando RESEND
     sendEmail(email, assunto, html);
 
     res.status(201).json(novaConta);
 };
+
+/* ===========================================================
+   REGISTRO DE ONG
+=========================================================== */
 exports.registerOng = async (req, res) => {
     const { 
       name, 
@@ -109,22 +114,25 @@ exports.registerOng = async (req, res) => {
         <p>Sua plataforma para conectar pets a novos lares.</p>
         <p>Agradecemos seu cadastro!</p>
     `;
+
     sendEmail(email, assunto, html);
     
     res.status(201).json(novaContaOng);
 };
- 
+
+/* ===========================================================
+   LOGIN
+=========================================================== */
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
         const usuario = await prisma.account.findUnique({
             where: { email },
             include: { admin: true, ong: true, publico: true }
-          });
+        });
 
         if (!usuario) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
 
-       
         const passwordMatch = await bcrypt.compare(password, usuario.password); 
         if (!passwordMatch) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
 
@@ -136,33 +144,38 @@ exports.login = async (req, res) => {
         
         const { password: _, ...usuarioSemSenha } = usuario;
         res.json({ token, usuario: usuarioSemSenha });
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Erro ao fazer login.' });
     }
 };
 
+/* ===========================================================
+   PERFIL
+=========================================================== */
 exports.me = async (req, res) => {
     try {
         const usuario = await prisma.account.findUnique({
             where: { id: req.user.id },
             include: { admin: true, ong: true, publico: true }
-          });
+        });
 
         if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
         const { password: _, ...usuarioSemSenha } = usuario;
         res.json(usuarioSemSenha);
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Erro ao buscar dados do usuário.' });
     }
 };
 
-
-
+/* ===========================================================
+   ATUALIZAR PERFIL
+=========================================================== */
 exports.atualizarPerfil = async (req, res) => {
-    
     const { nome, telefone, password, currentPassword } = req.body; 
     const userId = req.user.id;
 
@@ -202,11 +215,10 @@ exports.atualizarPerfil = async (req, res) => {
     }
 };
 
-
-
-const generateOTP = () => {
-    return Math.floor(1000 + Math.random() * 9000).toString();
-};
+/* ===========================================================
+   RECUPERAÇÃO DE SENHA (OTP)
+=========================================================== */
+const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
@@ -215,24 +227,19 @@ exports.forgotPassword = async (req, res) => {
         const account = await prisma.account.findUnique({ where: { email } });
 
         if (!account) {
-            // Retorna sucesso fake para segurança (não revelar emails cadastrados)
+            // Segurança: não revelar se email existe
             return res.json({ message: "Código enviado se o e-mail existir." });
         }
 
-        // Gera o código de 4 dígitos
         const otp = generateOTP();
-        
-        // Define validade (15 minutos)
+
         const expiry = new Date();
         expiry.setMinutes(expiry.getMinutes() + 15);
 
-        // Salva no banco (usando os campos que você já criou)
-        // Se você usou 'resetToken' no schema, vamos salvar o OTP lá.
-        // Se ainda não criou, crie: resetToken String?, resetTokenExpiry DateTime?
         await prisma.account.update({
             where: { id: account.id },
             data: {
-                resetToken: otp, 
+                resetToken: otp,
                 resetTokenExpiry: expiry
             }
         });
@@ -242,13 +249,13 @@ exports.forgotPassword = async (req, res) => {
             <div style="font-family: Arial, sans-serif; text-align: center;">
                 <h2>Recuperação de Senha</h2>
                 <p>Use o código abaixo para redefinir sua senha:</p>
-                <h1 style="background: #f4f4f4; padding: 10px; display: inline-block; letter-spacing: 5px;">${otp}</h1>
+                <h1 style="background: #f4f4f4; padding: 10px; display: inline-block; letter-spacing: 5px;">
+                    ${otp}
+                </h1>
                 <p>Este código expira em 15 minutos.</p>
-                <p>Se não foi você, ignore este e-mail.</p>
             </div>
         `;
 
-     
         await sendEmail(email, assunto, html);
 
         res.json({ message: "Código enviado!" });
@@ -259,15 +266,18 @@ exports.forgotPassword = async (req, res) => {
     }
 };
 
+/* ===========================================================
+   VALIDAR CÓDIGO
+=========================================================== */
 exports.verifyCode = async (req, res) => {
     const { email, code } = req.body;
 
     try {
         const account = await prisma.account.findFirst({
             where: {
-                email: email,
+                email,
                 resetToken: code,
-                resetTokenExpiry: { gt: new Date() } // Verifica se não expirou
+                resetTokenExpiry: { gt: new Date() }
             }
         });
 
@@ -276,12 +286,16 @@ exports.verifyCode = async (req, res) => {
         }
 
         res.json({ message: "Código válido!" });
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Erro ao verificar código." });
     }
 };
 
+/* ===========================================================
+   RESETAR SENHA
+=========================================================== */
 exports.resetPassword = async (req, res) => {
     const { email, code, newPassword } = req.body;
 
@@ -292,7 +306,7 @@ exports.resetPassword = async (req, res) => {
     try {
         const account = await prisma.account.findFirst({
             where: {
-                email: email,
+                email,
                 resetToken: code,
                 resetTokenExpiry: { gt: new Date() }
             }
@@ -308,9 +322,9 @@ exports.resetPassword = async (req, res) => {
             where: { id: account.id },
             data: {
                 password: hashedPassword,
-                resetToken: null,       // Limpa o código usado
+                resetToken: null,
                 resetTokenExpiry: null
-            },
+            }
         });
 
         res.json({ message: "Senha redefinida com sucesso!" });

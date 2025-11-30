@@ -1,36 +1,25 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require("resend");
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST,
-  port: 465,
-  secure: true, // SSL
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+async function sendEmail(to, subject, html) {
+  try {
+    console.log(`Enviando e-mail para ${to}...`);
+
+    const data = await resend.emails.send({
+      from: "PetResc <noreply@petresc.com>",
+      to,
+      subject,
+      html,
+    });
+
+    console.log("E-mail enviado via Resend!", data);
+    return true;
+
+  } catch (error) {
+    console.error("Erro ao enviar com Resend:", error);
+    return false;
   }
-});
-
-const sendEmail = async (to, subject, html) => {
-    try {
-        console.log(`Tentando enviar e-mail para: ${to}...`);
-
-        const info = await transporter.sendMail({
-            from: `"PetResc" <${process.env.MAIL_USER}>`,
-            to: to,
-            subject: subject,
-            html: html,
-        });
-
-        console.log("E-mail enviado:", info.messageId);
-        return true;
-
-    } catch (error) {
-        console.error("Falha no envio de e-mail:", error);
-        return false;
-    }
-};
+}
 
 module.exports = { sendEmail };

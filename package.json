@@ -8,8 +8,7 @@
     "postinstall": "prisma generate",
     "dev": "nodemon src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-      "smtp": "node testSmtp.js"
-
+    "smtp": "node testSmtp.js"
   },
   "dependencies": {
     "@prisma/client": "6.18.0",
@@ -22,9 +21,9 @@
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "node": "^24.9.0",
-    "nodemailer": "^7.0.11",
     "pg": "^8.16.3",
-    "prisma": "6.18.0"
+    "prisma": "6.18.0",
+    "resend": "^6.5.2"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
