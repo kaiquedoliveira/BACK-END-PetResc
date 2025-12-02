@@ -63,51 +63,72 @@ const getById = async (req, res) => {
 };
 
 // POST 
-const create = async (req, res) => {
-    const usuarioLogado = req.user;
-    const { animalId, ongId, ...dadosDoFormulario } = req.body;
+ const create = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-    try {
-        // Usamos o ID do crachá (token) para pegar todos os dados do Account no banco.
-        const fullUserAccount = await prisma.account.findUnique({
-            where: { id: usuarioLogado.id },
-        });
+    const {
+      periodoDisponibilidade,
+      levarVeterinario,
+      arcarCustos,
+      ajudaSuprimentos,
 
-        if (!fullUserAccount) {
-            return res.status(404).json({ error: 'Conta de usuário não encontrada.' });
-        }
+      nomeCompleto,
+      cpf,
+      email,
+      telefone,
+      dataNascimento,
 
-        if (!dadosDoFormulario.periodoDisponibilidade) {
-            return res.status(400).json({ error: 'O período de disponibilidade é obrigatório.' });
-        }
+      endereco,
+      tipoResidencia,
+      espacoDisponivel,
+      possuiAnimais,
+      quaisAnimais,
+      experiencia,
 
-         let ongIdFinal = null;
- 
-          if (animalId) {
-          const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
-          if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
-            ongIdFinal = animal.accountId; // ok quando vem do animal
-        }
-        
-        const novoLar = await prisma.larTemporario.create({
-            data: {
-                ...dadosDoFormulario, 
-                dataNascimento: new Date(dadosDoFormulario.dataNascimento),
-                usuarioId: usuarioLogado.id,
-                ongId: ongIdFinal,
-                animalId: animalId ? parseInt(animalId) : null,
-                nomeCompleto: fullUserAccount.nome,
-                cpf: fullUserAccount.cpf,
-                email: fullUserAccount.email,
-                telefone: fullUserAccount.telefone,
-            }
-        });
-        res.status(201).json(novoLar);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro ao registrar interesse em lar temporário' });
-    }
+      tipoAnimalInteresse,
+      porteAnimal,
+
+      fotosResidencia
+    } = req.body;
+
+    const novoLar = await prisma.larTemporario.create({
+      data: {
+        userId,
+
+        periodoDisponibilidade,
+        levarVeterinario,
+        arcarCustos,
+        ajudaSuprimentos,
+
+        nomeCompleto,
+        cpf,
+        email,
+        telefone,
+        dataNascimento,
+
+        endereco,
+        tipoResidencia,
+        espacoDisponivel,
+        possuiAnimais,
+        quaisAnimais,
+        experiencia,
+
+        tipoAnimalInteresse,
+        porteAnimal,
+
+        fotosResidencia
+      }
+    });
+
+    return res.status(201).json(novoLar);
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Erro ao registrar lar temporário" });
+  }
 };
+
 // PUT por id
 const updateStatus = async (req, res) => {
     const { id } = req.params;
