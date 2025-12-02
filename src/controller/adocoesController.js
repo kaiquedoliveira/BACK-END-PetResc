@@ -164,7 +164,6 @@ const listarPedidosPorAnimal = async (req, res) => {
                         observacoes: true,
 
                         // CAMPOS DE ENDEREÇO
-                        cep: true,
                         rua: true,
                         numero: true,
                         complemento: true,
