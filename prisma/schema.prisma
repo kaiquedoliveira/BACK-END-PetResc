@@ -265,7 +265,7 @@ model PedidoAdocao {
 
 model FormularioAdocao {
   id             Int          @id @default(autoincrement())
-  pedidoAdocaoId Int          @unique // Relação 1:1 obrigatória
+  pedidoAdocaoId Int          @unique
   pedido         PedidoAdocao @relation(fields: [pedidoAdocaoId], references: [id], onDelete: Cascade)
 
   tipoMoradia    String
@@ -293,6 +293,15 @@ model FormularioAdocao {
 
   motivoAdocao String
   observacoes  String?
+
+
+  cep          String?
+  rua          String?
+  numero       String?
+  complemento  String?
+  bairro       String?
+  cidade       String?
+  estado       String?
 
   createdAt DateTime @default(now())
 
