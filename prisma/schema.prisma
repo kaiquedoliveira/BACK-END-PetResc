@@ -153,34 +153,48 @@ model Doacao {
 }
 
 model LarTemporario {
-  id                     Int      @id @default(autoincrement())
-  usuarioId              Int
-  ongId                  Int
-  animalId               Int?
-  nomeCompleto           String
-  cpf                    String
-  dataNascimento         DateTime
-  telefone               String
-  email                  String
-  endereco               String
-  tipoMoradia            String
-  possuiQuintal          Boolean
-  portesAceitos          String
-  especiesAceitas        String
-  possuiAnimais          Boolean
-  experiencia            String?
-  dispoVeterinario       String?
-  podeFornecerRacao      Boolean
-  precisaAjudaONG        Boolean
-  periodoDisponibilidade String
-  status                 String   @default("EM_ANALISE")
-  createdAt              DateTime @default(now())
-  aprovadoPorId          Int?
+  id     Int  @id @default(autoincrement())
 
-  ong         Ong      @relation(fields: [ongId], references: [id])
-  animal      Animal?  @relation(fields: [animalId], references: [id])
-  usuario     Account  @relation(fields: [usuarioId], references: [id])
-  aprovadoPor Account? @relation("AprovadorLarTemporario", fields: [aprovadoPorId], references: [id]) // NOVO RELACIONAMENTO
+  // Relação com Account (quem criou o pedido)
+  userId Int
+  user   Account @relation(fields: [userId], references: [id])
+
+  // Relação com Account (quem aprovou)
+  aprovadorId Int?
+  aprovador   Account? @relation("AprovadorLarTemporario", fields: [aprovadorId], references: [id])
+
+  // Relação com Ong
+  ongId Int?
+  ong   Ong? @relation(fields: [ongId], references: [id])
+
+  // Relação com Animal
+  animalId Int?
+  animal   Animal? @relation(fields: [animalId], references: [id])
+
+  periodoDisponibilidade String
+  levarVeterinario       Boolean
+  arcarCustos            Boolean
+  ajudaSuprimentos       Boolean
+
+  nomeCompleto   String?
+  cpf            String?
+  email          String?
+  telefone       String?
+  dataNascimento String?
+
+  endereco       Json?
+  tipoResidencia String?
+  espacoDisponivel String?
+  possuiAnimais  Boolean?
+  quaisAnimais   String?
+  experiencia    String?
+
+  tipoAnimalInteresse String?
+  porteAnimal         String?
+
+  fotosResidencia Json?
+
+  createdAt DateTime @default(now())
 }
 
 model Ficha {
