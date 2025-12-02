@@ -1,69 +1,87 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { criarNotificacao } = require('../controller/notificacoesController');
- const { sendEmail } = require('../services/emailService');
+const { sendEmail } = require('../services/emailService');
 
-// GET padrao
+//
+// GET ALL
+//
 const getAll = async (req, res) => {
- const usuarioLogado = req.user;
+  const usuarioLogado = req.user;
 
   try {
-    let  whereClause = {};
-    if ( usuarioLogado.role === 'PUBLICO') {
-      whereClause = { usuarioId: usuarioLogado.id }; // Público vê só os seus
-      } else if (usuarioLogado.role === 'ONG') {
-        whereClause = {
+    let whereClause = {};
+
+    if (usuarioLogado.role === 'PUBLICO') {
+      // O público só vê suas próprias solicitações
+      whereClause = { usuarioId: usuarioLogado.id };
+
+    } else if (usuarioLogado.role === 'ONG') {
+      // ONG vê:
+      // - Todos pendentes
+      // - Os que ela mesma aprovou
+      whereClause = {
         OR: [
-        { status: 'PENDENTE' },               // Pode ver todos pendentes
-        { ongId: usuarioLogado.id }           // Pode ver os que ela aprovou
-         ]
-       };
-      }
-      const lares = await prisma.larTemporario.findMany({
+          { status: 'PENDENTE' },
+          { aprovadoPorId: usuarioLogado.id }
+        ]
+      };
+    }
+
+    const lares = await prisma.larTemporario.findMany({
       where: whereClause,
       include: {
-    animal: true, 
-    usuario: { 
-        select: { id: true, nome: true, email: true, telefone: true }
-    },
-    ong: { 
-        select: { id: true, nome: true }
-    }
-}
+        usuario: {
+          select: { id: true, nome: true, email: true, telefone: true }
+        },
+        aprovadoPor: {
+          select: { id: true, nome: true }
+        }
+      }
     });
+
     res.json(lares);
+
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao buscar lares temporários' });
   }
 };
 
-// GET larTemporario id
+//
+// GET BY ID
+//
 const getById = async (req, res) => {
   const { id } = req.params;
+
   try {
     const lar = await prisma.larTemporario.findUnique({
       where: { id: parseInt(id) },
-     include: {
-    animal: true, 
-    usuario: { 
-        select: { id: true, nome: true, email: true, telefone: true }
-    },
-    ong: { 
-        select: { id: true, nome: true }
-    }
-}
+      include: {
+        usuario: {
+          select: { id: true, nome: true, email: true, telefone: true }
+        },
+        aprovadoPor: {
+          select: { id: true, nome: true }
+        }
+      }
     });
+
     if (!lar) {
       return res.status(404).json({ error: 'Registro não encontrado' });
     }
+
     res.json(lar);
+
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao buscar lar temporário' });
   }
 };
 
-// POST 
-
+//
+// CREATE
+//
 const create = async (req, res) => {
   try {
     const usuarioLogado = req.user;
@@ -131,86 +149,101 @@ const create = async (req, res) => {
     return res.status(500).json({ error: "Erro ao registrar lar temporário" });
   }
 };
-// PUT por id
+
+//
+// UPDATE STATUS
+//
 const updateStatus = async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    const usuarioLogado = req.user;
-    
-    if (!['APROVADO', 'REJEITADO'].includes(status)) {
-        return res.status(400).json({ error: 'Status inválido. Use APROVADO ou REJEITADO.' });
+  const { id } = req.params;
+  const { status } = req.body;
+  const usuarioLogado = req.user;
+
+  if (!['APROVADO', 'REJEITADO'].includes(status)) {
+    return res.status(400).json({ error: 'Status inválido. Use APROVADO ou REJEITADO.' });
+  }
+
+  try {
+    const lar = await prisma.larTemporario.findUnique({
+      where: { id: parseInt(id) },
+      include: { usuario: true }
+    });
+
+    if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
+
+    if (usuarioLogado.role !== 'ONG' && usuarioLogado.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Apenas ONGs ou ADMIN podem aprovar/rejeitar.' });
     }
 
-    try {
-        const lar = await prisma.larTemporario.findUnique({ 
-            where: { id: parseInt(id) },
-            include: { usuario: true, animal: true } 
-        });
-        
-          if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
-        
-            if (usuarioLogado.role === 'ONG') {
-    
-          if (lar.ongId && lar.ongId !== usuarioLogado.id) {
-            return res.status(403).json({ error: 'Este pedido já foi assumido por outra ONG.' });
-          }
+    const larAtualizado = await prisma.larTemporario.update({
+      where: { id: parseInt(id) },
+      data: {
+        status,
+        aprovadoPorId: usuarioLogado.id
+      }
+    });
 
-   
-         }             
- 
+    // Notificação
+    const acao = status === 'APROVADO' ? 'aprovado' : 'rejeitado';
+    const mensagem = `Seu pedido de lar temporário foi ${acao}.`;
 
+    await criarNotificacao(
+      lar.usuarioId,
+      `Status do Lar Temporário: ${status}`,
+      mensagem,
+      'LAR_TEMPORARIO'
+    );
 
+    // E-mail
+    const htmlEmail = `
+        <h2>Olá, ${lar.usuario.nome}.</h2>
+        <p>O status da sua candidatura de Lar Temporário foi atualizado para: <strong>${status}</strong>.</p>
+        <p>Acesse o sistema para mais detalhes.</p>
+    `;
 
-        
-         const larAtualizado = await prisma.larTemporario.update({
-            where: { id: parseInt(id) },
-           data: {
-            status,
-            aprovadoPorId: usuarioLogado.id,
-            ongId: usuarioLogado.id  // <- NOVO: a ONG assumiu o caso
-           }
-        });
+    sendEmail(lar.usuario.email, `Atualização do Lar Temporário: ${status}`, htmlEmail);
 
-        const acao = status === 'APROVADO' ? 'aprovado' : 'rejeitado';
-        const animalNome = lar.animal?.nome || 'o animal';
-        
-        const titulo = `Status do Lar Temporário: ${status}`;
-        const mensagem = `Seu pedido de lar temporário para ${animalNome} foi ${acao}.`;
-        await criarNotificacao(lar.usuarioId, titulo, mensagem, 'LAR_TEMPORARIO'); 
-        
-        const assuntoEmail = `Atualização Lar Temporário: ${status}`;
-        const htmlEmail = `
-            <h2>Olá, ${lar.usuario.nome}.</h2>
-            <p>O status da sua candidatura de Lar Temporário para <strong>${animalNome}</strong> foi atualizado para: <strong>${status}</strong>.</p>
-            <p>Acesse o aplicativo para mais detalhes.</p>
-        `;
-        
-        sendEmail(lar.usuario.email, assuntoEmail, htmlEmail);
-        
-        res.json(larAtualizado);
+    res.json(larAtualizado);
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro ao atualizar status' });
-    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar status' });
+  }
 };
-// DELETE por id
+
+//
+// DELETE
+//
 const remove = async (req, res) => {
-    const { id } = req.params;
-    const usuarioLogado = req.user; 
-    try {
-        const lar = await prisma.larTemporario.findUnique({ where: { id: parseInt(id) } });
-        if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
+  const { id } = req.params;
+  const usuarioLogado = req.user;
 
-        if (usuarioLogado.role !== 'ADMIN' && lar.usuarioId !== usuarioLogado.id && lar.ongId !== usuarioLogado.id) {
-             return res.status(403).json({ error: 'Acesso negado.' });
-        }
+  try {
+    const lar = await prisma.larTemporario.findUnique({
+      where: { id: parseInt(id) }
+    });
 
-        await prisma.larTemporario.delete({ where: { id: parseInt(id) } });
-        res.status(204).send();
-    } catch (err) {
-        res.status(500).json({ error: 'Erro ao cancelar lar temporário' });
+    if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
+
+    // Quem pode deletar?
+    const pode =
+      usuarioLogado.role === 'ADMIN' ||
+      lar.usuarioId === usuarioLogado.id ||
+      lar.aprovadoPorId === usuarioLogado.id;
+
+    if (!pode) {
+      return res.status(403).json({ error: 'Acesso negado.' });
     }
+
+    await prisma.larTemporario.delete({
+      where: { id: parseInt(id) }
+    });
+
+    res.status(204).send();
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao cancelar lar temporário' });
+  }
 };
 
 module.exports = {
