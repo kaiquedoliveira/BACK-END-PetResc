@@ -63,72 +63,74 @@ const getById = async (req, res) => {
 };
 
 // POST 
- const create = async (req, res) => {
+
+const create = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const usuarioLogado = req.user;
 
     const {
-      periodoDisponibilidade,
-      levarVeterinario,
-      arcarCustos,
-      ajudaSuprimentos,
-
       nomeCompleto,
       cpf,
       email,
       telefone,
-      dataNascimento,
 
       endereco,
-      tipoResidencia,
-      espacoDisponivel,
-      possuiAnimais,
-      quaisAnimais,
-      experiencia,
 
-      tipoAnimalInteresse,
+      tipoMoradia,
+      quintal,
       porteAnimal,
+      tipoAnimal,
 
-      fotosResidencia
+      outrosAnimais,
+      administraMedicamentos,
+
+      levarVeterinario,
+      arcarCustos,
+      ajudaSuprimentos,
+
+      periodoDisponibilidade,
+
+      declaroVerdade,
+      declaroLido
     } = req.body;
 
     const novoLar = await prisma.larTemporario.create({
       data: {
-        userId,
-
-        periodoDisponibilidade,
-        levarVeterinario,
-        arcarCustos,
-        ajudaSuprimentos,
+        usuarioId: usuarioLogado.id,
 
         nomeCompleto,
         cpf,
         email,
         telefone,
-        dataNascimento,
 
-        endereco,
-        tipoResidencia,
-        espacoDisponivel,
-        possuiAnimais,
-        quaisAnimais,
-        experiencia,
+        endereco: endereco ?? {},
 
-        tipoAnimalInteresse,
+        tipoMoradia,
+        quintal: !!quintal,
         porteAnimal,
+        tipoAnimal,
 
-        fotosResidencia
+        outrosAnimais: !!outrosAnimais,
+        administraMedicamentos: !!administraMedicamentos,
+
+        levarVeterinario: !!levarVeterinario,
+        arcarCustos: !!arcarCustos,
+        ajudaSuprimentos: !!ajudaSuprimentos,
+
+        periodoDisponibilidade,
+
+        declaroVerdade: !!declaroVerdade,
+        declaroLido: !!declaroLido
       }
     });
 
     return res.status(201).json(novoLar);
 
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("ERRO AO CRIAR LAR TEMPORÁRIO:", error);
     return res.status(500).json({ error: "Erro ao registrar lar temporário" });
   }
 };
-
 // PUT por id
 const updateStatus = async (req, res) => {
     const { id } = req.params;

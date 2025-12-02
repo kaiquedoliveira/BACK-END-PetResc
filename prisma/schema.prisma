@@ -153,48 +153,35 @@ model Doacao {
 }
 
 model LarTemporario {
-  id     Int  @id @default(autoincrement())
+  id                   Int      @id @default(autoincrement())
+  usuarioId            Int
+  usuario              Usuario  @relation(fields: [usuarioId], references: [id])
 
-  // Relação com Account (quem criou o pedido)
-  userId Int
-  user   Account @relation(fields: [userId], references: [id])
+  nomeCompleto         String
+  cpf                  String
+  email                String
+  telefone             String
 
-  // Relação com Account (quem aprovou)
-  aprovadorId Int?
-  aprovador   Account? @relation("AprovadorLarTemporario", fields: [aprovadorId], references: [id])
+  // endereço
+  endereco             Json
 
-  // Relação com Ong
-  ongId Int?
-  ong   Ong? @relation(fields: [ongId], references: [id])
+  tipoMoradia          String?
+  quintal              Boolean
+  porteAnimal          String?
+  tipoAnimal           String?
+  outrosAnimais        Boolean
+  administraMedicamentos Boolean
 
-  // Relação com Animal
-  animalId Int?
-  animal   Animal? @relation(fields: [animalId], references: [id])
+  levarVeterinario     Boolean
+  arcarCustos          Boolean
+  ajudaSuprimentos     Boolean
 
   periodoDisponibilidade String
-  levarVeterinario       Boolean
-  arcarCustos            Boolean
-  ajudaSuprimentos       Boolean
 
-  nomeCompleto   String?
-  cpf            String?
-  email          String?
-  telefone       String?
-  dataNascimento String?
+  declaroVerdade       Boolean
+  declaroLido          Boolean
 
-  endereco       Json?
-  tipoResidencia String?
-  espacoDisponivel String?
-  possuiAnimais  Boolean?
-  quaisAnimais   String?
-  experiencia    String?
-
-  tipoAnimalInteresse String?
-  porteAnimal         String?
-
-  fotosResidencia Json?
-
-  createdAt DateTime @default(now())
+  status               String   @default("PENDENTE")
 }
 
 model Ficha {
