@@ -2,19 +2,16 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { sendEmail } = require('../services/emailService');
 
-// Helper para converter string "sim"/"nao" em Boolean
 const toBool = (value) => {
     if (typeof value === 'boolean') return value;
     return value === 'sim';
 };
 
-// Helper para converter string para Int com segurança
 const toInt = (value) => {
     const parsed = parseInt(value);
     return isNaN(parsed) ? 0 : parsed;
 };
 
-// 1. CRIAR PEDIDO
 const criarPedido = async (req, res) => {
   const { animalId, respostasFormulario } = req.body; 
   const candidatoId = req.user.id;
@@ -39,7 +36,6 @@ const criarPedido = async (req, res) => {
         return res.status(400).json({ error: "Já existe um pedido pendente." });
     }
 
-    // CRIAÇÃO COM CONVERSÃO DE TIPOS
     const novoPedido = await prisma.pedidoAdocao.create({
       data: {
         animalId: parseInt(animalId),
@@ -50,7 +46,6 @@ const criarPedido = async (req, res) => {
             create: {
                 tipoMoradia: respostasFormulario.tipoMoradia || "Não informado",
                 
-                // Convertendo Strings para Booleanos
                 possuiQuintal: toBool(respostasFormulario.possuiQuintal),
                 quintalTelado: toBool(respostasFormulario.quintalTelado),
                 janelasTeladas: toBool(respostasFormulario.janelasTeladas),
@@ -63,14 +58,12 @@ const criarPedido = async (req, res) => {
                 temVeterinario: toBool(respostasFormulario.temVeterinario),
                 cienteCustos: toBool(respostasFormulario.cienteCustos),
 
-                // Convertendo Strings para Int
                 pessoasNaCasa: toInt(respostasFormulario.pessoasNaCasa),
                 horasSozinho: toInt(respostasFormulario.horasSozinho),
 
-                // Strings diretas
                 rotinaPasseios: respostasFormulario.rotinaPasseios,
                 quemCuidara: respostasFormulario.quemCuidara,
-                historicoAnimais: respostasFormulario.historicoAnimais, // JSON String
+                historicoAnimais: respostasFormulario.historicoAnimais,
                 motivoAdocao: respostasFormulario.motivoAdocao,
                 observacoes: respostasFormulario.observacoes
             }
@@ -87,7 +80,6 @@ const criarPedido = async (req, res) => {
   }
 };
 
-// 2. MEUS PEDIDOS (Candidato)
 const listarMeusPedidos = async (req, res) => {
     const candidatoId = req.user.id;
     try {
@@ -96,7 +88,6 @@ const listarMeusPedidos = async (req, res) => {
             include: { 
                 animal: {
                     include: {
-                        // Inclui dados do dono do animal para contato
                         account: { select: { nome: true, telefone: true, email: true } }
                     }
                 }
@@ -109,7 +100,6 @@ const listarMeusPedidos = async (req, res) => {
     }
 };
 
-// 3. LISTAR TODOS OS PEDIDOS (Geral do Dashboard)
 const listarPedidosParaGerenciamento = async (req, res) => {
     const usuarioLogado = req.user;
     let whereClause = {};
@@ -123,7 +113,7 @@ const listarPedidosParaGerenciamento = async (req, res) => {
             where: whereClause,
             include: {
                 animal: { select: { id: true, nome: true, photoURL: true } },
-                account: { select: { id: true, nome: true, email: true } } // Correção: 'account'
+                account: { select: { id: true, nome: true, email: true } } 
             },
             orderBy: { dataPedido: 'desc' }
         });
@@ -133,7 +123,6 @@ const listarPedidosParaGerenciamento = async (req, res) => {
     }
 };
 
-// 4. LISTAR PEDIDOS DE UM ANIMAL (Tela GerenciarAdocao)
 const listarPedidosPorAnimal = async (req, res) => {
     const { animalId } = req.params;
     const userId = req.user.id;
@@ -143,7 +132,6 @@ const listarPedidosPorAnimal = async (req, res) => {
         
         if (!animal) return res.status(404).json({ error: "Animal não encontrado" });
         
-        // Permite se for ADMIN ou se for o DONO (ONG ou PUBLICO)
         if (req.user.role !== 'ADMIN' && animal.accountId !== userId) {
             return res.status(403).json({ error: "Sem permissão." });
         }
@@ -152,9 +140,21 @@ const listarPedidosPorAnimal = async (req, res) => {
             where: { animalId: parseInt(animalId) },
             include: {
                 formulario: true,
-                // CORREÇÃO CRÍTICA: O nome da relação no schema é 'account'
+
                 account: {      
-                    select: { nome: true, email: true, telefone: true } 
+                    select: { 
+                        nome: true, 
+                        email: true, 
+                        telefone: true,
+
+                        estado: true,
+                        cidade: true,
+                        cep: true,
+                        rua: true,
+                        bairro: true,
+                        numero: true,
+                        complemento: true
+                    }
                 }
             },
             orderBy: { dataPedido: 'desc' }
@@ -167,7 +167,6 @@ const listarPedidosPorAnimal = async (req, res) => {
         res.status(500).json({ error: "Erro ao buscar candidatos." });
     }
 };
-
 // 5. ATUALIZAR STATUS
 const atualizarStatusPedido = async (req, res) => {
     const { id: pedidoId } = req.params;
