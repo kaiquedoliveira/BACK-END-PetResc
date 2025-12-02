@@ -139,21 +139,47 @@ const listarPedidosPorAnimal = async (req, res) => {
         const pedidos = await prisma.pedidoAdocao.findMany({
             where: { animalId: parseInt(animalId) },
             include: {
-                formulario: true,
+                // FORMULÁRIO COMPLETO
+                formulario: {
+                    select: {
+                        id: true,
+                        tipoMoradia: true,
+                        possuiQuintal: true,
+                        quintalTelado: true,
+                        janelasTeladas: true,
+                        moradiaPropria: true,
+                        todosConcordam: true,
+                        criancasEmCasa: true,
+                        alergias: true,
+                        possuiOutrosAnimais: true,
+                        teveAnimaisAntes: true,
+                        temVeterinario: true,
+                        cienteCustos: true,
+                        pessoasNaCasa: true,
+                        horasSozinho: true,
+                        rotinaPasseios: true,
+                        quemCuidara: true,
+                        historicoAnimais: true,
+                        motivoAdocao: true,
+                        observacoes: true,
 
+                        // CAMPOS DE ENDEREÇO
+                        cep: true,
+                        rua: true,
+                        numero: true,
+                        complemento: true,
+                        bairro: true,
+                        cidade: true,
+                        estado: true
+                    }
+                },
+
+                // Dados do usuário (candidato)
                 account: {      
                     select: { 
                         nome: true, 
                         email: true, 
-                        telefone: true,
-
-                        estado: true,
-                        cidade: true,
-                        cep: true,
-                        rua: true,
-                        bairro: true,
-                        numero: true,
-                        complemento: true
+                        telefone: true
                     }
                 }
             },
