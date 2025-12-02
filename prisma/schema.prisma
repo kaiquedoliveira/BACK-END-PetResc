@@ -153,35 +153,34 @@ model Doacao {
 }
 
 model LarTemporario {
-  id                   Int      @id @default(autoincrement())
-  usuarioId            Int
-  usuario              Usuario  @relation(fields: [usuarioId], references: [id])
+  id                     Int      @id @default(autoincrement())
+  usuarioId              Int
+  usuario                Account  @relation(fields: [usuarioId], references: [id])
 
-  nomeCompleto         String
-  cpf                  String
-  email                String
-  telefone             String
+  nomeCompleto           String
+  cpf                    String
+  email                  String
+  telefone               String
 
-  // endereço
-  endereco             Json
+  endereco               Json
 
-  tipoMoradia          String?
-  quintal              Boolean
-  porteAnimal          String?
-  tipoAnimal           String?
-  outrosAnimais        Boolean
+  tipoMoradia            String?
+  quintal                Boolean
+  porteAnimal            String?
+  tipoAnimal             String?
+  outrosAnimais          Boolean
   administraMedicamentos Boolean
 
-  levarVeterinario     Boolean
-  arcarCustos          Boolean
-  ajudaSuprimentos     Boolean
+  levarVeterinario       Boolean
+  arcarCustos            Boolean
+  ajudaSuprimentos       Boolean
 
   periodoDisponibilidade String
 
-  declaroVerdade       Boolean
-  declaroLido          Boolean
+  declaroVerdade         Boolean
+  declaroLido            Boolean
 
-  status               String   @default("PENDENTE")
+  status                 String   @default("PENDENTE")
 }
 
 model Ficha {
