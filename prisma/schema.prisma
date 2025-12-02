@@ -153,16 +153,32 @@ model Doacao {
 }
 
 model LarTemporario {
-  id                     Int      @id @default(autoincrement())
-  usuarioId              Int
-  usuario                Account  @relation(fields: [usuarioId], references: [id])
+  id Int @id @default(autoincrement())
 
-  nomeCompleto           String
-  cpf                    String
-  email                  String
-  telefone               String
+  // Dono do pedido (usuário normal)
+  usuarioId Int
+  usuario   Account @relation(fields: [usuarioId], references: [id])
 
-  endereco               Json
+  // Aprovador (campo novo)
+  aprovadorId Int?
+  aprovador   Account? @relation("AprovadorLarTemporario", fields: [aprovadorId], references: [id])
+
+  // ONG dona do animal (se aplicável)
+  ongId Int?
+  ong   Ong? @relation(fields: [ongId], references: [id])
+
+  // Animal vinculado
+  animalId Int?
+  animal   Animal? @relation(fields: [animalId], references: [id])
+
+  // Dados pessoais
+  nomeCompleto String
+  cpf          String
+  email        String
+  telefone     String
+
+  // Endereço
+  endereco Json
 
   tipoMoradia            String?
   quintal                Boolean
@@ -171,16 +187,16 @@ model LarTemporario {
   outrosAnimais          Boolean
   administraMedicamentos Boolean
 
-  levarVeterinario       Boolean
-  arcarCustos            Boolean
-  ajudaSuprimentos       Boolean
+  levarVeterinario Boolean
+  arcarCustos      Boolean
+  ajudaSuprimentos Boolean
 
   periodoDisponibilidade String
 
-  declaroVerdade         Boolean
-  declaroLido            Boolean
+  declaroVerdade Boolean
+  declaroLido    Boolean
 
-  status                 String   @default("PENDENTE")
+  status String @default("PENDENTE")
 }
 
 model Ficha {
@@ -228,57 +244,57 @@ enum StatusAdocao {
   PERDIDO
   ENCONTRADO
   DISPONIVEL
-  ADOTADO 
+  ADOTADO
 }
 
 model PedidoAdocao {
-  id          Int      @id @default(autoincrement())
-  status      StatusPedido @default(PENDENTE)
-  dataPedido  DateTime @default(now())
+  id         Int          @id @default(autoincrement())
+  status     StatusPedido @default(PENDENTE)
+  dataPedido DateTime     @default(now())
 
-  animalId    Int
-  animal      Animal   @relation("AnimalPedidos", fields: [animalId], references: [id])
+  animalId Int
+  animal   Animal @relation("AnimalPedidos", fields: [animalId], references: [id])
 
   candidatoId Int
-  account     Account  @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
+  account     Account @relation("CandidatoPedidos", fields: [candidatoId], references: [id])
 
-  formulario  FormularioAdocao? 
+  formulario FormularioAdocao?
 
   @@map("pedidos_adocao")
 }
 
 model FormularioAdocao {
-  id              Int     @id @default(autoincrement())
-  pedidoAdocaoId  Int     @unique // Relação 1:1 obrigatória
-  pedido          PedidoAdocao @relation(fields: [pedidoAdocaoId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  pedidoAdocaoId Int          @unique // Relação 1:1 obrigatória
+  pedido         PedidoAdocao @relation(fields: [pedidoAdocaoId], references: [id], onDelete: Cascade)
 
-  tipoMoradia     String 
-  possuiQuintal   Boolean
-  quintalTelado   Boolean?
-  janelasTeladas  Boolean? 
-  moradiaPropria  Boolean
+  tipoMoradia    String
+  possuiQuintal  Boolean
+  quintalTelado  Boolean?
+  janelasTeladas Boolean?
+  moradiaPropria Boolean
 
-  pessoasNaCasa   Int
-  todosConcordam  Boolean
-  criancasEmCasa  Boolean
-  alergias        Boolean
+  pessoasNaCasa  Int
+  todosConcordam Boolean
+  criancasEmCasa Boolean
+  alergias       Boolean
 
-  horasSozinho    Int     
-  rotinaPasseios  String? 
-  quemCuidara     String  
-  
+  horasSozinho   Int
+  rotinaPasseios String?
+  quemCuidara    String
+
   possuiOutrosAnimais Boolean
-  historicoAnimais    String? 
+  historicoAnimais    String?
 
-  teveAnimaisAntes    Boolean
-  temVeterinario      Boolean?
-  
-  cienteCustos        Boolean 
+  teveAnimaisAntes Boolean
+  temVeterinario   Boolean?
 
-  motivoAdocao        String  
-  observacoes         String?
+  cienteCustos Boolean
 
-  createdAt       DateTime @default(now())
+  motivoAdocao String
+  observacoes  String?
+
+  createdAt DateTime @default(now())
 
   @@map("formularios_adocao")
 }
