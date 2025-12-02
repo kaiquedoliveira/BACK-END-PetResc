@@ -11,9 +11,14 @@ const getAll = async (req, res) => {
     let  whereClause = {};
     if ( usuarioLogado.role === 'PUBLICO') {
       whereClause = { usuarioId: usuarioLogado.id }; // Público vê só os seus
-    } else if (usuarioLogado.role === 'ONG') {
-      whereClause = { ongId: usuarioLogado.id }; // ONG vê só os dela
-    }
+      } else if (usuarioLogado.role === 'ONG') {
+        whereClause = {
+        OR: [
+        { status: 'PENDENTE' },               // Pode ver todos pendentes
+        { ongId: usuarioLogado.id }           // Pode ver os que ela aprovou
+         ]
+       };
+      }
       const lares = await prisma.larTemporario.findMany({
       where: whereClause,
       include: {
@@ -76,15 +81,12 @@ const create = async (req, res) => {
             return res.status(400).json({ error: 'O período de disponibilidade é obrigatório.' });
         }
 
-        let ongIdFinal;
-        if (animalId) {
-            const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
-            if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
-            ongIdFinal = animal.accountId;
-        } else if (ongId) {
-            ongIdFinal = parseInt(ongId);
-        } else {
-            return res.status(400).json({ error: 'É necessário especificar um animalId ou uma ongId.' });
+         let ongIdFinal = null;
+ 
+          if (animalId) {
+          const animal = await prisma.animal.findUnique({ where: { id: parseInt(animalId) } });
+          if (!animal) return res.status(404).json({ error: 'Animal não encontrado.' });
+            ongIdFinal = animal.accountId; // ok quando vem do animal
         }
         
         const novoLar = await prisma.larTemporario.create({
@@ -122,18 +124,28 @@ const updateStatus = async (req, res) => {
             include: { usuario: true, animal: true } 
         });
         
-        if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
+          if (!lar) return res.status(404).json({ error: 'Registro não encontrado' });
         
-        if (usuarioLogado.role !== 'ADMIN' && lar.ongId !== usuarioLogado.id) {
-            return res.status(403).json({ error: 'Acesso negado. Permissão insuficiente.' });
-        }
+            if (usuarioLogado.role === 'ONG') {
+    
+          if (lar.ongId && lar.ongId !== usuarioLogado.id) {
+            return res.status(403).json({ error: 'Este pedido já foi assumido por outra ONG.' });
+          }
+
+   
+         }             
+ 
+
+
+
         
-        const larAtualizado = await prisma.larTemporario.update({ 
-            where: { id: parseInt(id) }, 
-            data: { 
-                status,
-                aprovadoPorId: usuarioLogado.id
-            } 
+         const larAtualizado = await prisma.larTemporario.update({
+            where: { id: parseInt(id) },
+           data: {
+            status,
+            aprovadoPorId: usuarioLogado.id,
+            ongId: usuarioLogado.id  // <- NOVO: a ONG assumiu o caso
+           }
         });
 
         const acao = status === 'APROVADO' ? 'aprovado' : 'rejeitado';
