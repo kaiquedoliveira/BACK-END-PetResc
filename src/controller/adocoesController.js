@@ -100,29 +100,50 @@ const listarMeusPedidos = async (req, res) => {
     }
 };
 
-const listarPedidosParaGerenciamento = async (req, res) => {
-    const usuarioLogado = req.user;
-    let whereClause = {};
-
-    try {
-        if (usuarioLogado.role !== 'ADMIN') {
-            whereClause = { animal: { accountId: usuarioLogado.id } };
-        }
-        
-        const pedidos = await prisma.pedidoAdocao.findMany({
-            where: whereClause,
-            include: {
-                animal: { select: { id: true, nome: true, photoURL: true } },
-                account: { select: { id: true, nome: true, email: true } },
-                 formulario: true 
-            },
-            orderBy: { dataPedido: 'desc' }
-        });
-        res.status(200).json(pedidos);
-    } catch (error) {
-        res.status(500).json({ error: 'Erro interno.' });
+const listarPedidosParaGerenciamento = await prisma.pedidoAdocao.findMany({
+  where: { animalId: parseInt(animalId) },
+  include: {
+    formulario: {
+      select: {
+        id: true,
+        tipoMoradia: true,
+        possuiQuintal: true,
+        quintalTelado: true,
+        janelasTeladas: true,
+        moradiaPropria: true,
+        todosConcordam: true,
+        criancasEmCasa: true,
+        alergias: true,
+        possuiOutrosAnimais: true,
+        teveAnimaisAntes: true,
+        temVeterinario: true,
+        cienteCustos: true,
+        pessoasNaCasa: true,
+        horasSozinho: true,
+        rotinaPasseios: true,
+        quemCuidara: true,
+        historicoAnimais: true,
+        motivoAdocao: true,
+        observacoes: true
+      }
+    },
+    account: {      
+      select: { 
+        nome: true, 
+        email: true, 
+        telefone: true,
+        cep: true,
+        rua: true,
+        numero: true,
+        complemento: true,
+        bairro: true,
+        cidade: true,
+        estado: true
+      }
     }
-};
+  },
+  orderBy: { dataPedido: 'desc' }
+});
 
 const listarPedidosPorAnimal = async (req, res) => {
     const { animalId } = req.params;
@@ -178,9 +199,17 @@ const listarPedidosPorAnimal = async (req, res) => {
                 // Dados do usuário (candidato)
                 account: {      
                     select: { 
-                        nome: true, 
-                        email: true, 
-                        telefone: true
+                      nome: true, 
+                      email: true, 
+                      telefone: true,
+                      cep: true,
+                     rua: true,
+                     numero: true,
+                     complemento: true,
+                     bairro: true,
+                     cidade: true,
+                     estado: true
+
                     }
                 }
             },
