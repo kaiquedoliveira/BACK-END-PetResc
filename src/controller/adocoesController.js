@@ -100,50 +100,67 @@ const listarMeusPedidos = async (req, res) => {
     }
 };
 
-const listarPedidosParaGerenciamento = await prisma.pedidoAdocao.findMany({
-  where: { animalId: parseInt(animalId) },
-  include: {
-    formulario: {
-      select: {
-        id: true,
-        tipoMoradia: true,
-        possuiQuintal: true,
-        quintalTelado: true,
-        janelasTeladas: true,
-        moradiaPropria: true,
-        todosConcordam: true,
-        criancasEmCasa: true,
-        alergias: true,
-        possuiOutrosAnimais: true,
-        teveAnimaisAntes: true,
-        temVeterinario: true,
-        cienteCustos: true,
-        pessoasNaCasa: true,
-        horasSozinho: true,
-        rotinaPasseios: true,
-        quemCuidara: true,
-        historicoAnimais: true,
-        motivoAdocao: true,
-        observacoes: true
-      }
-    },
-    account: {      
-      select: { 
-        nome: true, 
-        email: true, 
-        telefone: true,
-        cep: true,
-        rua: true,
-        numero: true,
-        complemento: true,
-        bairro: true,
-        cidade: true,
-        estado: true
-      }
+const listarPedidosParaGerenciamento = async (req, res) => {
+  const usuarioLogado = req.user;
+  let whereClause = {};
+
+  try {
+    if (usuarioLogado.role !== 'ADMIN') {
+      whereClause = { animal: { accountId: usuarioLogado.id } };
     }
-  },
-  orderBy: { dataPedido: 'desc' }
-});
+
+    const pedidos = await prisma.pedidoAdocao.findMany({
+      where: whereClause,
+      include: {
+        formulario: {
+          select: {
+            id: true,
+            tipoMoradia: true,
+            possuiQuintal: true,
+            quintalTelado: true,
+            janelasTeladas: true,
+            moradiaPropria: true,
+            todosConcordam: true,
+            criancasEmCasa: true,
+            alergias: true,
+            possuiOutrosAnimais: true,
+            teveAnimaisAntes: true,
+            temVeterinario: true,
+            cienteCustos: true,
+            pessoasNaCasa: true,
+            horasSozinho: true,
+            rotinaPasseios: true,
+            quemCuidara: true,
+            historicoAnimais: true,
+            motivoAdocao: true,
+            observacoes: true
+          }
+        },
+        account: {
+          select: {
+            nome: true,
+            email: true,
+            telefone: true,
+            cep: true,
+            rua: true,
+            numero: true,
+            complemento: true,
+            bairro: true,
+            cidade: true,
+            estado: true
+          }
+        },
+        animal: { select: { id: true, nome: true, photoURL: true } }
+      },
+      orderBy: { dataPedido: 'desc' }
+    });
+
+    res.status(200).json(pedidos);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+};
 
 const listarPedidosPorAnimal = async (req, res) => {
     const { animalId } = req.params;
