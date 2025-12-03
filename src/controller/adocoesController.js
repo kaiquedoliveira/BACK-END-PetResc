@@ -113,7 +113,8 @@ const listarPedidosParaGerenciamento = async (req, res) => {
             where: whereClause,
             include: {
                 animal: { select: { id: true, nome: true, photoURL: true } },
-                account: { select: { id: true, nome: true, email: true } } 
+                account: { select: { id: true, nome: true, email: true } },
+                 formulario: true 
             },
             orderBy: { dataPedido: 'desc' }
         });
