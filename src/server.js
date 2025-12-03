@@ -38,7 +38,7 @@ app.use('/api/pedidos-adocao', adocoesRoutes);
 app.use('/uploads', express.static('uploads'));
 app.use('/api/animais', animaisRoutes);
 app.use('/api/notificacoes', notificacoesRoutes); 
-app.use('/favoritar', favoritarRoutes); 
+app.use('/api/favoritar', favoritarRoutes); 
 
 app.use('/api/admin', adminRoutes); 
 
