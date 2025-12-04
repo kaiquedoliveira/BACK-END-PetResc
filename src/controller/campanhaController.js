@@ -13,9 +13,11 @@ exports.create = async (req, res) => {
     let itensArray = [];
     try {
       itensArray = JSON.parse(itens_descricao || "[]");
-    } catch {}
+    } catch (err) {
+      console.warn("Itens inválidos, usando array vazio");
+    }
 
-    // URL da imagem no Cloudinary (multer-storage-cloudinary retorna file.path)
+    // Multer/Cloudinary retorna file.path
     const imagemUrl = req.file ? req.file.path : null;
 
     const campanha = await prisma.campanha.create({
@@ -26,8 +28,8 @@ exports.create = async (req, res) => {
         dataLimite: new Date(data_limite),
         itensDescricao: itensArray,
         imagemUrl,
-        usuarioCriadorId: req.userId
-      }
+        usuarioCriadorId: req.userId,
+      },
     });
 
     return res.status(201).json({
@@ -63,26 +65,30 @@ exports.getAll = async (req, res) => {
   }
 };
 
- exports.getById = async (req, res) => {
-        const { id } = req.params;
-        try {
-            const campanha = await prisma.campanha.findUnique({
-                where: { id: Number(id) },
-                include: {
-                    ong: {
-                        select: { nome: true, email: true, telefone: true, id: true }
-                    }
-                }
-            });
+exports.getById = async (req, res) => {
+  const { id } = req.params;
 
-            if (!campanha) {
-                return res.status(404).json({ message: "Campanha não encontrada." });
-            }
-
-            return res.json(campanha);
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ message: "Erro ao buscar campanha." });
+  try {
+    const campanha = await prisma.campanha.findUnique({
+      where: { id: id }, // <- SEU ID É STRING, NÃO NÚMERO
+      include: {
+        ong: {
+          select: { nome: true, email: true, telefone: true, id: true }
+        },
+        usuarioCriador: {
+          select: { nome: true, email: true }
         }
-    };
+      }
+    });
 
+    if (!campanha) {
+      return res.status(404).json({ message: "Campanha não encontrada." });
+    }
+
+    return res.json(campanha);
+
+  } catch (error) {
+    console.error("Erro no getById:", error);
+    return res.status(500).json({ message: "Erro ao buscar campanha." });
+  }
+};
