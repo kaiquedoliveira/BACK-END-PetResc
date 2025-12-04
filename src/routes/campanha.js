@@ -7,6 +7,9 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 
 router.get('/', campanhaController.getAll);
 
+router.get('/:id', campanhaController.getById);
+
+
 router.post(
   '/',
   authenticateToken,

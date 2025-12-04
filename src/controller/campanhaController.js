@@ -62,3 +62,27 @@ exports.getAll = async (req, res) => {
     return res.status(500).json({ message: "Erro ao buscar campanhas." });
   }
 };
+
+ exports.getById = async (req, res) => {
+        const { id } = req.params;
+        try {
+            const campanha = await prisma.campanha.findUnique({
+                where: { id: Number(id) },
+                include: {
+                    ong: {
+                        select: { nome: true, email: true, telefone: true, id: true }
+                    }
+                }
+            });
+
+            if (!campanha) {
+                return res.status(404).json({ message: "Campanha não encontrada." });
+            }
+
+            return res.json(campanha);
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: "Erro ao buscar campanha." });
+        }
+    };
+
