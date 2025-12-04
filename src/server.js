@@ -22,6 +22,7 @@ const feedRoutes = require("./routes/feed");
 const adocoesRoutes = require("./routes/adocoes");
 const adminRoutes = require('./routes/admin');
 const notificacoesRoutes = require("./routes/notificacoes");
+const favoritarRoutes = require('./routes/favoritar');
 
 
 
@@ -37,6 +38,7 @@ app.use('/api/pedidos-adocao', adocoesRoutes);
 app.use('/uploads', express.static('uploads'));
 app.use('/api/animais', animaisRoutes);
 app.use('/api/notificacoes', notificacoesRoutes); 
+app.use('/api/favoritar', favoritarRoutes); 
 
 app.use('/api/admin', adminRoutes); 
 
