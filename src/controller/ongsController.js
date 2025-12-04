@@ -142,6 +142,7 @@ include: {
 const getOngsProximas = async (req, res) => {
     const { lat, lng, raioKm } = req.query;
 
+    // 1. Validação mais forte dos inputs
     if (!lat || !lng) {
         return res.status(400).json({ error: 'Latitude e Longitude são obrigatórias.' });
     }
@@ -150,32 +151,53 @@ const getOngsProximas = async (req, res) => {
     const userLng = parseFloat(lng);
     const distanceKm = parseFloat(raioKm) || 10; 
 
+    // Se a conversão falhar (virar NaN), paramos aqui para não quebrar o banco
+    if (isNaN(userLat) || isNaN(userLng)) {
+        return res.status(400).json({ error: 'Latitude e Longitude inválidas.' });
+    }
+
     try {
-       
+        console.log(`Buscando ONGs próximas de: ${userLat}, ${userLng} (Raio: ${distanceKm}km)`);
+
+        // 2. Query SQL corrigida para PostgreSQL (Render)
+        // Adicionamos ::float para garantir que o banco entenda os números
         const ongs = await prisma.$queryRaw`
             SELECT 
                 o.id, 
                 o.nome, 
                 o.descricao, 
+                o.endereco,
                 o.latitude, 
                 o.longitude,
                 (6371 * acos(
-                    cos(radians(${userLat})) * cos(radians(o.latitude)) * cos(radians(o.longitude) - radians(${userLng})) + 
-                    sin(radians(${userLat})) * sin(radians(o.latitude))
+                    cos(radians(${userLat}::float)) * cos(radians(o.latitude::float)) * cos(radians(o.longitude::float) - radians(${userLng}::float)) + 
+                    sin(radians(${userLat}::float)) * sin(radians(o.latitude::float))
                 )) AS distancia
             FROM "Ong" o
             WHERE o.latitude IS NOT NULL AND o.longitude IS NOT NULL
-            HAVING distancia < ${distanceKm}
+            GROUP BY o.id, o.nome, o.descricao, o.endereco, o.latitude, o.longitude
+            HAVING (6371 * acos(
+                    cos(radians(${userLat}::float)) * cos(radians(o.latitude::float)) * cos(radians(o.longitude::float) - radians(${userLng}::float)) + 
+                    sin(radians(${userLat}::float)) * sin(radians(o.latitude::float))
+                )) < ${distanceKm}::float
             ORDER BY distancia ASC
         `;
 
+        // Log para debug (ver se achou algo)
+        console.log(`Encontradas ${ongs.length} ONGs.`);
         
-        
-        res.json(ongs);
+        // Conversão de BigInt (se houver) para JSON
+        const ongsFormatadas = ongs.map(ong => ({
+            ...ong,
+            id: Number(ong.id) // Garante que ID venha como número
+        }));
+
+        res.json(ongsFormatadas);
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro ao buscar ONGs próximas' });
+        // 3. Log do erro REAL (sem undefined)
+        console.error("ERRO FATAL NO MAPA:", err);
+        res.status(500).json({ error: 'Erro interno ao buscar ONGs' });
     }
 };
 
