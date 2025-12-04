@@ -70,10 +70,15 @@ exports.getById = async (req, res) => {
 
   try {
     const campanha = await prisma.campanha.findUnique({
-      where: { id: id }, // <- SEU ID É STRING, NÃO NÚMERO
+      where: { id: Number(id) },
       include: {
         ong: {
-          select: { nome: true, email: true, telefone: true, id: true }
+          select: {
+            id: true,
+            nome: true,
+            cidade: true,
+            estado: true
+          }
         },
         usuarioCriador: {
           select: { nome: true, email: true }
