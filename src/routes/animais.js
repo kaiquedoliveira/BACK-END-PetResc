@@ -5,8 +5,9 @@ const animaisController = require('../controller/animaisController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const storage = require('../config/cloudinary'); 
-const upload = multer({ storage: storage });
+const  { uploadAnimal } = require('../config/multer');
+
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 
@@ -65,7 +66,7 @@ router.delete('/:id/desfavoritar', animaisController.desfavoritarAnimal);
 router.post(
   '/',
   authorizeRole(['ONG', 'PUBLICO']),
-  upload.fields([
+  uploadAnimal.fields([
     { name: 'imagem', maxCount: 1 },
     { name: 'imagem_resgate', maxCount: 1 }
   ]),
