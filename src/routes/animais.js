@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const animaisController = require('../controller/animaisController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
@@ -60,17 +61,16 @@ router.get('/:id', animaisController.buscarAnimalPorId);
 router.post('/:id/favoritar', animaisController.favoritarAnimal);
 router.delete('/:id/desfavoritar', animaisController.desfavoritarAnimal);
 
-// CRUD
+
 router.post(
   '/',
   authorizeRole(['ONG', 'PUBLICO']),
-  uploadAnimal.fields([
+  upload.fields([
     { name: 'imagem', maxCount: 1 },
     { name: 'imagem_resgate', maxCount: 1 }
   ]),
   animaisController.criarAnimal
 );
-
 router.put('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.atualizarAnimal);
 router.delete('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.deletarAnimal);
 
