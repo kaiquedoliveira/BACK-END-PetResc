@@ -1,6 +1,7 @@
 const multer = require("multer");
-const { storage } = require("./cloudinary");
+const { campanhaStorage, animalStorage } = require("./cloudinary");
 
-const upload = multer({ storage });
+const uploadCampanha = multer({ storage: campanhaStorage });
+const uploadAnimal = multer({ storage: animalStorage });
 
-module.exports = upload;
+module.exports = { uploadCampanha, uploadAnimal };
