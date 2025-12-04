@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const animaisController = require('../controller/animaisController');
-const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware'); 
-const multer = require('multer');
+const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const storage = require('../config/cloudinary'); 
@@ -15,9 +14,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // 1. Rota de Listagem (Central de Adoção)
 router.get('/', animaisController.listarAnimais); 
 
-// --- ROTAS DE GERENCIAMENTO (PRECISAM ESTAR ANTES DE '/:id') ---
-
-// 2. Listagem para Gerenciamento (DEVE vir antes de /:id)
+// Gerenciamento
 router.get('/gerenciar/lista', authenticateToken, authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.listarAnimaisParaGerenciamento);
 
 // 3. Estatísticas (DEVE vir antes de /:id)
@@ -60,19 +57,20 @@ router.post("/ia-descricao", async (req, res) => {
 // 4. Rota de Busca por ID (/:id - Agora vem depois de todas as rotas específicas)
 router.get('/:id', animaisController.buscarAnimalPorId);
 
-// 5. Rotas de Interação (POST/DELETE)
-router.post('/:id/favoritar', animaisController.favoritarAnimal); 
+router.post('/:id/favoritar', animaisController.favoritarAnimal);
 router.delete('/:id/desfavoritar', animaisController.desfavoritarAnimal);
 
-
-// 6. Rotas CRUD
-router.post('/', authorizeRole(['ONG', 'PUBLICO']), 
-    upload.fields([
-        { name: 'imagem', maxCount: 1 },         
-        { name: 'imagem_resgate', maxCount: 1 }  
-    ]), 
-    animaisController.criarAnimal
+// CRUD
+router.post(
+  '/',
+  authorizeRole(['ONG', 'PUBLICO']),
+  uploadAnimal.fields([
+    { name: 'imagem', maxCount: 1 },
+    { name: 'imagem_resgate', maxCount: 1 }
+  ]),
+  animaisController.criarAnimal
 );
+
 router.put('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.atualizarAnimal);
 router.delete('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.deletarAnimal);
 
