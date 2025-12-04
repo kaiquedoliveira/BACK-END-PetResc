@@ -1,6 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const fs = require('fs');
 
 
 // Lista todos os animais ou com filtros
@@ -73,51 +72,33 @@ const buscarAnimalPorId = async (req, res) => {
 };
 
 const criarAnimal = async (req, res) => {
-  const usuarioLogado = req.user; // pega o usuário logado
-  const files = req.files;
+  const usuarioLogado = req.user; // garante que seu auth middleware seta req.user
+  const files = req.files || {}; // evita crash
 
-  // Desestrutura os campos vindos do body
   const {
-    nome,
-    especie,
-    raca,
-    porte,
-    sexo,
-    descricao,
-    idade,
-    cor,
-    status,
-    data_resgate,
-    local_estado,
-    local_cidade,
-    local_numero,
-    tinha_filhotes,
-    tinha_coleira,
-    motivo_nao_disponivel,
-    local_atual,
-    observacoes,
-    cuidado,
-    vermifugado,
-    data_vermifugado,
-    vacinado,
-    vacinas_texto,
-    castrado,
-    data_castrado,
-    testado,
-    testes,
-    resultados,
+    nome, especie, raca, porte, sexo, descricao, idade, cor, status,
+    data_resgate, local_estado, local_cidade, local_numero,
+    tinha_filhotes, tinha_coleira, motivo_nao_disponivel, local_atual,
+    observacoes, cuidado, vermifugado, data_vermifugado, vacinado,
+    vacinas_texto, castrado, data_castrado, testado, testes, resultados,
     sociabilidade
   } = req.body;
-
-  const imagemPrincipalFile = files?.imagem?.[0];
-  const imagemResgateFile   = files?.imagem_resgate?.[0];
 
   if (!nome || !especie) {
     return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
   }
 
+  const imagemPrincipalFile = files.imagem?.[0];
+  const imagemResgateFile = files.imagem_resgate?.[0];
+
   const photoURL = imagemPrincipalFile ? imagemPrincipalFile.path : null;
   const imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
+
+
+  if (!nome || !especie) {
+    return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
+  }
+
 
   try {
     const dataToCreate = {

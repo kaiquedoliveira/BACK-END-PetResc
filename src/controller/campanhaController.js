@@ -1,67 +1,64 @@
-const Campanha = require('../models/Campanha'); // Ajuste o caminho conforme onde criou o Model
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
-const campanhasController = {
-    
-    // Função para criar uma nova campanha
-    create: async (req, res) => {
-        try {
-            // 1. Pegar os dados do corpo da requisição (req.body)
-            const { titulo, descricao, meta_financeira, data_limite, itens_descricao } = req.body;
+exports.create = async (req, res) => {
+  try {
+    const { titulo, descricao, meta_financeira, data_limite, itens_descricao } = req.body;
 
-            // 2. Pegar o arquivo da imagem (se houver) vindo do Multer
-            const imagem = req.file ? req.file.filename : null;
-
-            // 3. Pegar o ID do usuário autenticado (vindo do middleware de auth)
-            // Geralmente req.userId ou req.user.id
-            const usuarioCriador = req.userId; 
-
-            if (!titulo || !meta_financeira || !data_limite) {
-                return res.status(400).json({ message: "Preencha todos os campos obrigatórios." });
-            }
-
-            // 4. O front manda itens_descricao como JSON string, precisamos converter de volta para Array
-            let itensParsed = [];
-            if (itens_descricao) {
-                try {
-                    itensParsed = JSON.parse(itens_descricao);
-                } catch (e) {
-                    itensParsed = []; // Fallback caso falhe
-                }
-            }
-
-            // 5. Criação do objeto
-            const novaCampanha = new Campanha({
-                titulo,
-                descricao,
-                meta_financeira,
-                data_limite,
-                itens_descricao: itensParsed,
-                imagem,
-                usuarioCriador
-            });
-
-            // 6. Salvar no banco
-            await novaCampanha.save();
-
-            return res.status(201).json({ 
-                message: "Campanha criada com sucesso!", 
-                campanha: novaCampanha 
-            });
-
-        } catch (error) {
-            console.error("Erro ao criar campanha:", error);
-            return res.status(500).json({ message: "Erro interno ao criar campanha." });
-        }
-    },
-
-    getAll: async (req, res) => {
-        try {
-            const campanhas = await Campanha.find().populate('usuarioCriador', 'nome email');
-            return res.json(campanhas);
-        } catch (error) {
-            return res.status(500).json({ message: "Erro ao buscar campanhas." });
-        }
+    if (!titulo || !meta_financeira || !data_limite) {
+      return res.status(400).json({ message: "Campos obrigatórios inválidos" });
     }
+
+    // Converter lista de itens
+    let itensArray = [];
+    try {
+      itensArray = JSON.parse(itens_descricao || "[]");
+    } catch {}
+
+    // URL da imagem no Cloudinary (multer-storage-cloudinary retorna file.path)
+    const imagemUrl = req.file ? req.file.path : null;
+
+    const campanha = await prisma.campanha.create({
+      data: {
+        titulo,
+        descricao,
+        metaFinanceira: parseFloat(meta_financeira),
+        dataLimite: new Date(data_limite),
+        itensDescricao: itensArray,
+        imagemUrl,
+        usuarioCriadorId: req.userId
+      }
+    });
+
+    return res.status(201).json({
+      message: "Campanha criada com sucesso!",
+      campanha
+    });
+
+  } catch (error) {
+    console.error("Erro ao criar campanha:", error);
+    return res.status(500).json({ message: "Erro interno ao criar campanha." });
+  }
 };
 
-module.exports = campanhasController;
+exports.getAll = async (req, res) => {
+  try {
+    const campanhas = await prisma.campanha.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        usuarioCriador: {
+          select: { nome: true, email: true }
+        },
+        ong: {
+          select: { nome: true }
+        }
+      }
+    });
+
+    return res.json(campanhas);
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro ao buscar campanhas." });
+  }
+};

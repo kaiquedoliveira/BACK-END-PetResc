@@ -87,21 +87,24 @@ model Campanha {
   id              Int      @id @default(autoincrement())
   titulo          String
   descricao       String
-  metaFinanceira  Decimal  @db.Decimal(10, 2)
-  valorArrecadado Decimal  @default(0) @db.Decimal(10, 2)
+  metaFinanceira  Decimal   @db.Decimal(10, 2)
+  valorArrecadado Decimal   @default(0) @db.Decimal(10, 2)
   dataLimite      DateTime
   itensDescricao  String[]
   imagemUrl       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Criador da campanha (opcional, pode ser público)
+  usuarioCriadorId Int?
+  usuarioCriador   Account? @relation(fields: [usuarioCriadorId], references: [id])
 
-  ongId Int
-  ong   Ong @relation(fields: [ongId], references: [id])
+  // ONG (apenas se for campanha da ONG)
+  ongId Int?
+  ong   Ong? @relation(fields: [ongId], references: [id])
 
   @@map("campanhas")
 }
-
 model Animal {
   id              Int          @id @default(autoincrement())
   nome            String
