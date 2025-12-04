@@ -1,19 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
-const upload = require('../config/multer'); // AGORA usando Cloudinary
-const campanhasController = require('../controllers/campanhasController');
-const authMiddleware = require('../middlewares/auth');
+const upload = require('../config/multer');
+const campanhaController = require('../controller/campanhaController');
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
-// Rotas
-router.get('/', campanhasController.getAll);
+router.get('/', campanhaController.getAll);
 
-// Aqui criamos a campanha com upload para o Cloudinary
-router.post(
-  '/',
-  authMiddleware,
-  upload.single('imagem'),
-  campanhasController.create
-);
+router.post('/', authenticateToken, upload.single('imagem'), campanhaController.create );
 
 module.exports = router;
