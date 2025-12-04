@@ -121,7 +121,7 @@ const criarAnimal = async (req, res) => {
         porte: porte || null,
         sexo: sexo || null, // 'MACHO' ou 'FEMEA'
         descricao: descricao || null, // História
-        idade: parseIntSafe(idade), // Select envia string, banco quer Int
+        idade: idade || "Não informada",
         corPredominante: cor || null,
         photoURL,
         status: status || 'DISPONIVEL', // Status do select da ONG
@@ -214,8 +214,7 @@ const atualizarAnimal = async (req, res) => {
 
         // 1. Strings para Int
         if (nome) dataToUpdate.nome = nome;
-        if (idade) dataToUpdate.idade = parseInt(idade);
-        
+        if (idade) dataToUpdate.idade = idade;        
         // 2. Strings ('sim'/'nao') para Boolean
         if (vermifugado !== undefined) dataToUpdate.vermifugado = vermifugado === 'sim';
         if (vacinado !== undefined) dataToUpdate.vacinado = vacinado === 'sim';

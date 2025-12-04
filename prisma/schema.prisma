@@ -114,7 +114,7 @@ model Animal {
   nome            String
   especie         String
   raca            String?
-  idade           Int?
+  idade           String?
   status          StatusAdocao @default(DISPONIVEL)
   porte           String?
   sexo            String?
