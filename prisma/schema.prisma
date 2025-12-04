@@ -42,6 +42,9 @@ model Account {
 
   // RELAÇÃO CORRIGIDA — USUÁRIO QUE SOLICITA LAR TEMPORÁRIO
   larTemporariosSolicitados LarTemporario[] @relation("SolicitanteLarTemporario")
+
+  campanhasCriadas Campanha[] @relation("UsuarioCriadorCampanha")
+
 }
 
 enum Role {
@@ -97,7 +100,8 @@ model Campanha {
 
   // Criador da campanha (opcional, pode ser público)
   usuarioCriadorId Int?
-  usuarioCriador   Account? @relation(fields: [usuarioCriadorId], references: [id])
+  usuarioCriador   Account? @relation("UsuarioCriadorCampanha", fields: [usuarioCriadorId], references: [id])
+
 
   // ONG (apenas se for campanha da ONG)
   ongId Int?
