@@ -29,18 +29,19 @@ model Account {
   resetToken       String?
   resetTokenExpiry DateTime?
 
-  // Relações com perfis que têm dados EXCLUSIVOS
   admin   Admin?
   ong     Ong?
   publico Publico?
 
   favoritos               Favorito[]
   doacoes                 Doacao[]
-  larTemporarios          LarTemporario[]
   animals                 Animal[]
   pedidosAdocao           PedidoAdocao[]  @relation("CandidatoPedidos")
   notificacoes            Notificacao[]
-  larTemporariosAprovados LarTemporario[] @relation("AprovadorLarTemporario") // NOVO CAMPO
+  larTemporariosAprovados LarTemporario[] @relation("AprovadorLarTemporario")
+
+  // RELAÇÃO CORRIGIDA — USUÁRIO QUE SOLICITA LAR TEMPORÁRIO
+  larTemporariosSolicitados LarTemporario[] @relation("SolicitanteLarTemporario")
 }
 
 enum Role {
@@ -62,7 +63,7 @@ model Publico {
 
 model Ong {
   id          Int     @id
-  nome        String? // Seguindo a SUA padronização
+  nome        String?
   cnpj        String?
   descricao   String?
   cep         String?
@@ -73,12 +74,32 @@ model Ong {
   cidade      String?
   estado      String?
 
-  latitude  Float?  
-  longitude Float?  
+  latitude  Float?
+  longitude Float?
 
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
+  campanhas      Campanha[]
   account        Account         @relation(fields: [id], references: [id], onDelete: Cascade)
+}
+
+model Campanha {
+  id              Int      @id @default(autoincrement())
+  titulo          String
+  descricao       String
+  metaFinanceira  Decimal  @db.Decimal(10, 2)
+  valorArrecadado Decimal  @default(0) @db.Decimal(10, 2)
+  dataLimite      DateTime
+  itensDescricao  String[]
+  imagemUrl       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ongId Int
+  ong   Ong @relation(fields: [ongId], references: [id])
+
+  @@map("campanhas")
 }
 
 model Animal {
@@ -97,7 +118,6 @@ model Animal {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Detalhes do Resgate
   data_resgate          DateTime? @map("dataResgate")
   local_estado          String?
   local_cidade          String?
@@ -106,7 +126,7 @@ model Animal {
   tinha_coleira         Boolean?  @map("tinhaColeira")
   motivo_nao_disponivel String?   @map("motivoNaoDisponivel")
   local_atual           String?   @map("localAtual")
-  imagem_resgate_url    String?   @map("imagemResgateURL") // Segunda Imagem
+  imagem_resgate_url    String?   @map("imagemResgateURL")
 
   cuidados_veterinarios String?   @map("cuidadosVeterinarios")
   vermifugado           Boolean?
@@ -128,13 +148,13 @@ model Animal {
 
   favoritos Favorito[]
 
-  larTemporarios LarTemporario[] // relação inversa
+  larTemporarios LarTemporario[]
   pedidosAdocao  PedidoAdocao[]  @relation("AnimalPedidos")
 }
 
 model Notificacao {
   id          String   @id @default(uuid())
-  accountId   Int // era String → agora Int
+  accountId   Int
   titulo      String
   mensagem    String
   lida        Boolean  @default(false)
@@ -158,15 +178,15 @@ model Doacao {
 model LarTemporario {
   id Int @id @default(autoincrement())
 
-  // Dono do pedido (usuário normal)
+  // SOLICITANTE (usuário normal) — RELAÇÃO CORRIGIDA
   usuarioId Int
-  usuario   Account @relation(fields: [usuarioId], references: [id])
+  usuario   Account @relation("SolicitanteLarTemporario", fields: [usuarioId], references: [id])
 
-  // Aprovador (campo novo)
+  // APROVADOR (ADM / ONG)
   aprovadorId Int?
   aprovador   Account? @relation("AprovadorLarTemporario", fields: [aprovadorId], references: [id])
 
-  // ONG dona do animal (se aplicável)
+  // ONG dona do animal
   ongId Int?
   ong   Ong? @relation(fields: [ongId], references: [id])
 
@@ -174,13 +194,11 @@ model LarTemporario {
   animalId Int?
   animal   Animal? @relation(fields: [animalId], references: [id])
 
-  // Dados pessoais
   nomeCompleto String
   cpf          String
   email        String
   telefone     String
 
-  // Endereço
   endereco Json
 
   tipoMoradia            String?
@@ -215,7 +233,6 @@ model Ficha {
   peso           Float?
   status         StatusAdocao @default(DISPONIVEL)
 
-  // Saude
   saude          String?
   vacinas        String?
   vermifugos     String?
@@ -225,7 +242,6 @@ model Ficha {
   ultimaConsulta DateTime?
   microchip      String?   @unique
 
-  // Comportamento
   temperamento          String
   socializacao          String?
   cuidados              String?
@@ -297,14 +313,13 @@ model FormularioAdocao {
   motivoAdocao String
   observacoes  String?
 
-
-  cep          String?
-  rua          String?
-  numero       String?
-  complemento  String?
-  bairro       String?
-  cidade       String?
-  estado       String?
+  cep         String?
+  rua         String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  estado      String?
 
   createdAt DateTime @default(now())
 
@@ -319,7 +334,6 @@ model Favorito {
   usuario Account @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   animal  Animal  @relation(fields: [animalId], references: [id], onDelete: Cascade)
 
-  // Essa chave composta impede que o usuário favorite o mesmo animal 2 vezes
   @@id([usuarioId, animalId])
 }
 
