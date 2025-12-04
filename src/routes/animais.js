@@ -4,8 +4,11 @@ const animaisController = require('../controller/animaisController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware'); 
 const multer = require('multer');
 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const storage = require('../config/cloudinary'); 
 const upload = multer({ storage: storage });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
 
 // --- ROTAS PÚBLICAS SEM ID/PARÂMETRO (MAIS ESPECÍFICAS) ---
 
@@ -24,6 +27,35 @@ router.get('/gerenciar/estatisticas/status', authenticateToken, authorizeRole('O
 // --- A PARTIR DAQUI PRECISAM DE AUTENTICAÇÃO E/OU ID ---
 
 router.use(authenticateToken); 
+
+// Rota da IA
+
+router.post("/ia-descricao", async (req, res) => {
+  try {
+    const { nome, especie, caracteristicas } = req.body;
+
+    if (!nome || !especie) {
+      return res.status(400).json({ error: "Nome e espécie são obrigatórios." });
+    }
+
+    console.log(`🤖 Gemini gerando para: ${nome}`);
+
+    // Configura o modelo
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Crie uma descrição curta (máx 200 caracteres), emocionante e apelativa para adoção de um ${especie} chamado ${nome}. Características: ${caracteristicas}.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const texto = response.text();
+
+    return res.json({ texto });
+
+  } catch (error) {
+    console.error("Erro Gemini:", error);
+    return res.status(500).json({ error: "Erro ao gerar descrição." });
+  }
+});
 
 // 4. Rota de Busca por ID (/:id - Agora vem depois de todas as rotas específicas)
 router.get('/:id', animaisController.buscarAnimalPorId);
