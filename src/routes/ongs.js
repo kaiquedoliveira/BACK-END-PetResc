@@ -14,7 +14,6 @@ router.get('/:id/animais', ongController.getAnimaisByOng);
 router.use(authenticateToken);
 
 router.put('/:id',authorizeRole(['ADMIN', 'ONG']), ongController.updateOng); 
-router.put('/ong/meus-dados', authorizeRole('ONG'), ongController.atualizarDadosOng);
 
 
 module.exports = router;
