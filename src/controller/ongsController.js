@@ -2,21 +2,56 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = new PrismaClient();
+const axios = require('axios');
 
+
+async function getCoordinatesFromAddress(endereco) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(endereco)}&limit=1`;
+
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                'User-Agent': 'PetRescApp/1.0 (seuemail@exemplo.com)' // Coloque um nome qualquer aqui
+            }
+        });
+
+        if (response.data.length > 0) {
+            const { lat, lon } = response.data[0];
+            return { latitude: parseFloat(lat), longitude: parseFloat(lon) };
+        }
+        return null;
+    } catch (error) {
+        console.error("Erro no Nominatim:", error.message);
+        return null;
+    }
+}
 
 // Atualizar ONG
-const updateOng = async (req, res) => {
-  const ongIdToUpdate = parseInt(req.params.id);
-  const loggedInUser = req.user; 
 
-  if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== ongIdToUpdate) {
+const updateOng = async (req, res) => {
+    const ongIdToUpdate = parseInt(req.params.id);
+    const loggedInUser = req.user;
+
+    if (loggedInUser.role !== 'ADMIN' && loggedInUser.id !== ongIdToUpdate) {
         return res.status(403).json({ error: 'Acesso negado.' });
     }
 
-   const { email, nome, telefone, cnpj, descricao, endereco } = req.body;
+    const { email, nome, telefone, cnpj, descricao, endereco } = req.body;
+
+    // 1. Preparamos o objeto com os dados básicos da ONG
+    let dadosOngParaSalvar = { nome, cnpj, descricao, endereco };
+
+    // 2. Lógica de Geocoding
+    if (endereco) {
+        const coords = await getCoordinatesFromAddress(endereco);
+        if (coords) {
+            // Adicionamos as coordenadas ao objeto que será salvo
+            dadosOngParaSalvar.latitude = coords.latitude;
+            dadosOngParaSalvar.longitude = coords.longitude;
+        }
+    }
 
     try {
-        // Usamos uma transação para garantir que ambas as atualizações ocorram
         const [updatedAccount, updatedOng] = await prisma.$transaction([
             prisma.account.update({
                 where: { id: ongIdToUpdate },
@@ -24,7 +59,7 @@ const updateOng = async (req, res) => {
             }),
             prisma.ong.update({
                 where: { id: ongIdToUpdate },
-                data: { nome, cnpj, descricao, endereco }
+                data: dadosOngParaSalvar // <--- 3. AQUI usamos o objeto com as coordenadas
             })
         ]);
 
@@ -35,9 +70,6 @@ const updateOng = async (req, res) => {
         res.status(500).json({ error: 'Erro ao atualizar ONG' });
     }
 };
-
-
-
 
 // Buscar ONG por ID
 const getOngById = async (req, res) => {
@@ -107,45 +139,50 @@ include: {
 };
 
 
-const atualizarDadosOng = async (req, res) => {
-    const { cnpj, descricao, nome} = req.body; 
-    const userId = req.user.id; 
+const getOngsProximas = async (req, res) => {
+    const { lat, lng, raioKm } = req.query;
 
-    // Apenas ONG pode usar esta rota
-    if (req.user.role !== 'ONG') {
-        return res.status(403).json({ error: 'Acesso negado. Apenas ONGs podem atualizar este perfil.' });
+    if (!lat || !lng) {
+        return res.status(400).json({ error: 'Latitude e Longitude são obrigatórias.' });
     }
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const distanceKm = parseFloat(raioKm) || 10; 
 
     try {
-        const dadosOngParaAtualizar = {};
-        if (cnpj) dadosOngParaAtualizar.cnpj = cnpj;
-        if (descricao) dadosOngParaAtualizar.descricao = descricao;
-        if (nome) dadosOngParaAtualizar.nome = nomeFantasia; 
+       
+        const ongs = await prisma.$queryRaw`
+            SELECT 
+                o.id, 
+                o.nome, 
+                o.descricao, 
+                o.latitude, 
+                o.longitude,
+                (6371 * acos(
+                    cos(radians(${userLat})) * cos(radians(o.latitude)) * cos(radians(o.longitude) - radians(${userLng})) + 
+                    sin(radians(${userLat})) * sin(radians(o.latitude))
+                )) AS distancia
+            FROM "Ong" o
+            WHERE o.latitude IS NOT NULL AND o.longitude IS NOT NULL
+            HAVING distancia < ${distanceKm}
+            ORDER BY distancia ASC
+        `;
 
-        if (Object.keys(dadosOngParaAtualizar).length === 0) {
-            return res.status(400).json({ error: 'Nenhum dado de ONG para atualizar foi fornecido.' });
-        }
-
-        const updatedOng = await prisma.ong.update({
-            where: { id: userId }, // O ID da ONG é o mesmo ID da Account
-            data: dadosOngParaAtualizar,
-            select: { nome: true, cnpj: true, descricao: true }
-        });
-
-        res.json({ message: "Dados da ONG atualizados com sucesso", ong: updatedOng });
         
+        
+        res.json(ongs);
+
     } catch (err) {
         console.error(err);
-        if (err.code === 'P2002') {
-             return res.status(400).json({ error: 'O CNPJ já está em uso por outra entidade.' });
-        }
-        res.status(500).json({ error: 'Erro ao atualizar dados da ONG.' });
+        res.status(500).json({ error: 'Erro ao buscar ONGs próximas' });
     }
 };
+
 module.exports = {
   getAllOngs,
   getOngById,
   getAnimaisByOng,
   updateOng,
-  atualizarDadosOng
+  getOngsProximas
 };

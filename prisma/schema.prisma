@@ -73,6 +73,9 @@ model Ong {
   cidade      String?
   estado      String?
 
+  latitude  Float?  
+  longitude Float?  
+
   doacoes        Doacao[]
   larTemporarios LarTemporario[]
   account        Account         @relation(fields: [id], references: [id], onDelete: Cascade)
