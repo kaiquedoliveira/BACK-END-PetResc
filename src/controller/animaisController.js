@@ -72,96 +72,116 @@ const buscarAnimalPorId = async (req, res) => {
 };
 
 const criarAnimal = async (req, res) => {
-  const usuarioLogado = req.user; // garante que seu auth middleware seta req.user
-  const files = req.files || {}; // evita crash
+  const usuarioLogado = req.user;
+  const files = req.files || {}; 
 
+  // Desestruturando TUDO que vem do formulário (FormData)
   const {
     nome, especie, raca, porte, sexo, descricao, idade, cor, status,
-    data_resgate, local_estado, local_cidade, local_numero,
-    tinha_filhotes, tinha_coleira, motivo_nao_disponivel, local_atual,
-    observacoes, cuidado, vermifugado, data_vermifugado, vacinado,
-    vacinas_texto, castrado, data_castrado, testado, testes, resultados,
-    sociabilidade
+    
+    // Resgate / Localização
+    data_resgate, local_estado, local_cidade, local_numero, local_atual,
+    tinha_filhotes, tinha_coleira, motivo_nao_disponivel,
+    
+    // Saúde (Booleans em string "sim"/"nao")
+    vermifugado, data_vermifugado,
+    vacinado, vacinas_texto,
+    castrado, data_castrado,
+    testado_doencas, testes_texto, resultados_testes, // no front vem como 'testado', 'testes', 'resultados'
+    
+    // Comportamento / Extras
+    observacoes, // no front vem como 'observacoes' (campo obs)
+    cuidado, 
+    sociabilidade 
   } = req.body;
 
   if (!nome || !especie) {
     return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
   }
 
+  // Tratamento de Imagens (Principal e Resgate)
   const imagemPrincipalFile = files.imagem?.[0];
-  const imagemResgateFile = files.imagem_resgate?.[0];
+  const imagemResgateFile = files.imagem_resgate?.[0]; // Campo novo do form
 
   const photoURL = imagemPrincipalFile ? imagemPrincipalFile.path : null;
   const imagemResgateURL = imagemResgateFile ? imagemResgateFile.path : null;
 
-
-  if (!nome || !especie) {
-    return res.status(400).json({ error: 'Nome e espécie são obrigatórios.' });
-  }
-
+  // Helpers para conversão de dados do FormData
+  const parseBool = (val) => val === 'sim' || val === 'true';
+  const parseDate = (val) => (val ? new Date(val) : null);
+  const parseIntSafe = (val) => (val ? parseInt(val) : null);
 
   try {
-    const dataToCreate = {
-      nome,
-      especie,
-      raca: raca || null,
-      porte: porte || null,
-      sexo: sexo || null,
-      descricao: descricao || null,
-      idade: idade ? parseInt(idade) : null,
-      corPredominante: cor || null,
-      photoURL,
-      status: status === 'DISPONIVEL' ? 'DISPONIVEL' : 'ENCONTRADO',
-
-      // Resgate
-      data_resgate: data_resgate ? new Date(data_resgate) : null,
-      local_estado: local_estado || null,
-      local_cidade: local_cidade || null,
-      local_numero: local_numero || null,
-      tinha_filhotes: tinha_filhotes === 'sim',
-      tinha_coleira: tinha_coleira === 'sim',
-      motivo_nao_disponivel: motivo_nao_disponivel || null,
-      local_atual: local_atual || null,
-      imagem_resgate_url: imagemResgateURL || null,
-
-      // Saúde
-      cuidados_veterinarios: observacoes || cuidado || null,
-
-      vermifugado: vermifugado === 'sim',
-      data_vermifugado:
-        vermifugado === 'sim' && data_vermifugado
-          ? new Date(data_vermifugado)
-          : null,
-
-      vacinado: vacinado === 'sim',
-      vacinas_texto: vacinas_texto || null,
-
-      castrado: castrado === 'sim',
-      data_castrado:
-        castrado === 'sim' && data_castrado
-          ? new Date(data_castrado)
-          : null,
-
-      testado_doencas: testado === 'sim',
-      testes_texto: testes || null,
-      resultados_testes: resultados || null,
-
-      sociabilidade: sociabilidade || null,
-
-      accountId: usuarioLogado.id
-    };
-
     const novoAnimal = await prisma.animal.create({
-      data: dataToCreate,
+      data: {
+        // --- DADOS BÁSICOS (Model Animal) ---
+        nome,
+        especie,
+        raca: raca || "SRD",
+        porte: porte || null,
+        sexo: sexo || null, // 'MACHO' ou 'FEMEA'
+        descricao: descricao || null, // História
+        idade: parseIntSafe(idade), // Select envia string, banco quer Int
+        corPredominante: cor || null,
+        photoURL,
+        status: status || 'DISPONIVEL', // Status do select da ONG
+        accountId: usuarioLogado.id,
+
+        // --- DADOS DE RESGATE (Model Animal) ---
+        data_resgate: parseDate(data_resgate),
+        local_estado: local_estado || null,
+        local_cidade: local_cidade || null,
+        local_numero: local_numero || null,
+        local_atual: local_atual || null,
+        tinha_filhotes: parseBool(tinha_filhotes),
+        tinha_coleira: parseBool(tinha_coleira),
+        motivo_nao_disponivel: motivo_nao_disponivel || null,
+        imagem_resgate_url: imagemResgateURL,
+
+        // --- DADOS DE SAÚDE DIRETOS (Model Animal) ---
+        // Seu schema tem esses campos direto no Animal, vamos preenchê-los
+        vermifugado: parseBool(vermifugado),
+        data_vermifugado: parseDate(data_vermifugado),
+        
+        vacinado: parseBool(vacinado),
+        vacinas_texto: vacinas_texto || null,
+        
+        castrado: parseBool(castrado),
+        data_castrado: parseDate(data_castrado),
+        
+        testado_doencas: parseBool(testado_doencas), // Front manda 'testado' mas formData append pode mudar nome
+        testes_texto: testes_texto || null,
+        resultados_testes: resultados_testes || null,
+        
+        cuidados_veterinarios: cuidado || null,
+        sociabilidade: sociabilidade || null,
+
+        // --- FICHA TÉCNICA VINCULADA (Model Ficha) ---
+        // Salvamos aqui dados complementares ou duplicados para garantir a exibição
+        ficha: {
+          create: {
+            temperamento: sociabilidade || "Não informado",
+            saude: resultados_testes || "Não informado",
+            vacinas: vacinas_texto || (parseBool(vacinado) ? "Sim" : "Não"),
+            vermifugos: parseBool(vermifugado) ? "Sim" : "Não",
+            castrado: parseBool(castrado),
+            observacoes: observacoes || cuidado || null, // Junta obs e cuidados
+            // Preenche outros campos obrigatórios da Ficha com defaults
+            nome: nome,
+            especie: especie
+          }
+        }
+      },
+      include: { ficha: true } // Retorna o animal já com a ficha criada
     });
 
     res.status(201).json(novoAnimal);
+
   } catch (err) {
-    console.error('Erro ao cadastrar animal (DETALHADO):', err);
-    return res.status(500).json({ error: err.message || 'Erro ao cadastrar animal.' });
+    console.error('Erro ao cadastrar animal:', err);
+    res.status(500).json({ error: 'Erro interno ao salvar dados do animal.' });
   }
 };
-
 
 // Atualiza os dados de um animal
 
