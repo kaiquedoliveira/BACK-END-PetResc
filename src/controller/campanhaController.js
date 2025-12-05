@@ -4,10 +4,19 @@ const prisma = new PrismaClient();
 exports.create = async (req, res) => {
   try {
     const { titulo, descricao, meta_financeira, data_limite, itens_descricao } = req.body;
+    const userId = req.userId; // ID vindo do token (middleware de auth)
 
     if (!titulo || !meta_financeira || !data_limite) {
       return res.status(400).json({ message: "Campos obrigatórios inválidos" });
     }
+
+    // 1. Busca a conta para saber se é uma ONG e pegar o ID da ONG
+    const account = await prisma.account.findUnique({
+        where: { id: userId },
+        include: { ong: true } // Inclui dados da tabela ONG
+    });
+
+    if (!account) return res.status(404).json({ error: "Usuário não encontrado" });
 
     // Converter lista de itens
     let itensArray = [];
@@ -17,9 +26,9 @@ exports.create = async (req, res) => {
       console.warn("Itens inválidos, usando array vazio");
     }
 
-    // Multer/Cloudinary retorna file.path
     const imagemUrl = req.file ? req.file.path : null;
 
+    // 2. Cria a campanha vinculando a ONG (se existir)
     const campanha = await prisma.campanha.create({
       data: {
         titulo,
@@ -28,7 +37,9 @@ exports.create = async (req, res) => {
         dataLimite: new Date(data_limite),
         itensDescricao: itensArray,
         imagemUrl,
-        usuarioCriadorId: req.userId,
+        usuarioCriadorId: userId,
+        // O PULO DO GATO: Salva o ID da ONG se a conta tiver uma
+        ongId: account.ong ? account.ong.id : null 
       },
     });
 
