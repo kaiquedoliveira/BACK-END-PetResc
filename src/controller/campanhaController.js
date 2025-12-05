@@ -4,7 +4,10 @@ const prisma = new PrismaClient();
 exports.create = async (req, res) => {
   try {
     const { titulo, descricao, meta_financeira, data_limite, itens_descricao } = req.body;
-    const userId = req.userId; // ID vindo do token (middleware de auth)
+    
+    // --- CORREÇÃO AQUI ---
+    // O middleware de auth coloca os dados em req.user
+    const userId = req.user.id; 
 
     if (!titulo || !meta_financeira || !data_limite) {
       return res.status(400).json({ message: "Campos obrigatórios inválidos" });
@@ -13,12 +16,12 @@ exports.create = async (req, res) => {
     // 1. Busca a conta para saber se é uma ONG e pegar o ID da ONG
     const account = await prisma.account.findUnique({
         where: { id: userId },
-        include: { ong: true } // Inclui dados da tabela ONG
+        include: { ong: true }
     });
 
     if (!account) return res.status(404).json({ error: "Usuário não encontrado" });
 
-    // Converter lista de itens
+    // Converter lista de itens (FormData envia string)
     let itensArray = [];
     try {
       itensArray = JSON.parse(itens_descricao || "[]");
@@ -28,7 +31,7 @@ exports.create = async (req, res) => {
 
     const imagemUrl = req.file ? req.file.path : null;
 
-    // 2. Cria a campanha vinculando a ONG (se existir)
+    // 2. Cria a campanha
     const campanha = await prisma.campanha.create({
       data: {
         titulo,
@@ -38,7 +41,7 @@ exports.create = async (req, res) => {
         itensDescricao: itensArray,
         imagemUrl,
         usuarioCriadorId: userId,
-        // O PULO DO GATO: Salva o ID da ONG se a conta tiver uma
+        // Se a conta tiver uma ONG associada, salva o ID dela
         ongId: account.ong ? account.ong.id : null 
       },
     });
@@ -63,7 +66,7 @@ exports.getAll = async (req, res) => {
           select: { nome: true, email: true }
         },
         ong: {
-          select: { nome: true }
+          select: { nome: true, cidade: true, estado: true } // Adicionei cidade/estado para exibir no front
         }
       }
     });
