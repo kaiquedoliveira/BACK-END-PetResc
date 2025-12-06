@@ -9,4 +9,6 @@ router.get('/stats', authenticateToken, adminController.getDashboardStats);
 // Pedidos
 router.get('/pedidos', authenticateToken, adminController.listarTodosPedidos);
 
+router.get('/activity', authenticateToken, adminController.getRecentActivity);
+
 module.exports = router;
