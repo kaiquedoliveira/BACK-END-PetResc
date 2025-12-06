@@ -1,19 +1,12 @@
 const express = require('express');
 const router = express.Router();
-
-const usuariosController = require('../controller/usuariosController');
 const adminController = require('../controller/adminController');
-const relatoriosController = require('../controller/relatoriosController'); 
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
-const { authorizeRole, authenticateToken } = require('../middlewares/authMiddleware');
+// Dashboard (Stats)
+router.get('/stats', authenticateToken, adminController.getDashboardStats);
 
-router.use(authenticateToken);
-router.use(authorizeRole(['ADMIN']));
-
-router.get('/usuarios', usuariosController.listarUsuarios);
-
-router.get('/pedidos-adocao', adminController.listarTodosPedidos);
-
-router.get('/estatisticas', relatoriosController.obterEstatisticasGerais); 
+// Pedidos
+router.get('/pedidos', authenticateToken, adminController.listarTodosPedidos);
 
 module.exports = router;
