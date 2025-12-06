@@ -230,6 +230,67 @@ const deletarUsuario = async (req, res) => {
     }
 };
 
+const obterDetalhesOng = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const ong = await prisma.account.findUnique({
+            where: { id: Number(id) },
+            include: {
+                ong: true, // Dados específicos (CNPJ, Descrição)
+                _count: { select: { animals: true } } // Contagem de animais
+            }
+        });
+
+        if (!ong) return res.status(404).json({ error: "ONG não encontrada." });
+
+        // Formata para o front
+        const dadosFormatados = {
+            id: ong.id,
+            nome: ong.ong?.nome || ong.nome,
+            email: ong.email,
+            telefone: ong.telefone,
+            cnpj: ong.ong?.cnpj || "Não informado",
+            descricao: ong.ong?.descricao || "Sem descrição.",
+            endereco: ong.ong?.cidade ? `${ong.ong.rua}, ${ong.ong.numero} - ${ong.ong.bairro}, ${ong.ong.cidade}/${ong.ong.estado}` : "Endereço não cadastrado",
+            totalAnimais: ong._count.animals
+        };
+
+        res.json(dadosFormatados);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao buscar detalhes." });
+    }
+};
+
+// 8. LISTAR PETS DE UMA ONG ESPECÍFICA
+const listarPetsDaOng = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const pets = await prisma.animal.findMany({
+            where: { accountId: Number(id) }, // Filtra pelo ID da ONG
+            orderBy: { createdAt: 'desc' },
+            include: {
+                _count: {
+                    select: { pedidosAdocao: { where: { status: 'PENDENTE' } } }
+                }
+            }
+        });
+
+        const petsFormatados = pets.map(pet => {
+            let statusCalculado = pet.status;
+            if (pet.status === 'DISPONIVEL' && pet._count.pedidosAdocao > 0) {
+                statusCalculado = 'AGUARDANDO';
+            }
+            return { ...pet, statusReal: statusCalculado };
+        });
+
+        res.json(petsFormatados);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao listar pets da ONG." });
+    }
+};
+
 // --- EXPORTS OBRIGATÓRIOS ---
 module.exports = {
     getDashboardStats,
@@ -237,5 +298,7 @@ module.exports = {
     getRecentActivity,
     listarTodosAnimais,
     deletarUsuario,
-    listarTodasOngs
+    listarTodasOngs,
+    listarPetsDaOng,
+    obterDetalhesOng
 };
