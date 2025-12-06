@@ -77,21 +77,20 @@ const listarTodosPedidos = async (req, res) => {
 
 const getRecentActivity = async (req, res) => {
     try {
-        // Buscamos em paralelo as últimas ocorrências de cada tipo
         const [novosUsuarios, novosAnimais, adocoesRecentes] = await Promise.all([
-            // 1. Últimos Usuários Cadastrados
+            // 1. Últimos Usuários (CORRIGIDO: Ordena por ID, pois não tem createdAt)
             prisma.account.findMany({
                 take: 3,
-                orderBy: { createdAt: 'desc' },
-                select: { id: true, nome: true, role: true, createdAt: true }
+                orderBy: { id: 'desc' }, 
+                select: { id: true, nome: true, role: true } // Removido createdAt
             }),
-            // 2. Últimos Animais Registrados
+            // 2. Últimos Animais (Mantém createdAt pois existe na tabela Animal)
             prisma.animal.findMany({
                 take: 3,
                 orderBy: { createdAt: 'desc' },
                 select: { id: true, nome: true, createdAt: true }
             }),
-            // 3. Últimas Adoções (Animais com status ADOTADO ordenados pela atualização)
+            // 3. Últimas Adoções
             prisma.animal.findMany({
                 where: { status: 'ADOTADO' },
                 take: 3,
@@ -100,38 +99,34 @@ const getRecentActivity = async (req, res) => {
             })
         ]);
 
-        // Padronizamos os dados para facilitar no Front
         const activityList = [
             ...novosUsuarios.map(u => ({
                 id: `usr-${u.id}`,
                 tipo: 'USUARIO',
                 texto: `Novo usuário: ${u.nome} (${u.role})`,
-                data: u.createdAt,
+                data: new Date(), // Data atual como fallback
                 link: '/admin/usuarios'
             })),
             ...novosAnimais.map(a => ({
                 id: `pet-${a.id}`,
                 tipo: 'ANIMAL',
-                texto: `Novo animal cadastrado: ${a.nome}`,
+                texto: `Novo animal: ${a.nome}`,
                 data: a.createdAt,
-                link: '/admin/pets'
+                link: `/animal/${a.id}`
             })),
             ...adocoesRecentes.map(a => ({
                 id: `adoc-${a.id}`,
                 tipo: 'ADOCAO',
-                texto: `Adoção concluída: ${a.nome}`,
+                texto: `Adoção: ${a.nome}`,
                 data: a.updatedAt,
-                link: '/admin/pedidos' // ou gerenciamento
+                link: `/animal/${a.id}`
             }))
         ];
 
-        // Ordena tudo pela data (do mais recente para o mais antigo)
+        // Ordena
         activityList.sort((a, b) => new Date(b.data) - new Date(a.data));
-
-        // Pega apenas os 5 ou 6 mais recentes para exibir no widget
-        const ultimasAcoes = activityList.slice(0, 5);
-
-        res.json(ultimasAcoes);
+        
+        res.json(activityList.slice(0, 5));
 
     } catch (err) {
         console.error("Erro activity admin:", err);
