@@ -75,22 +75,26 @@ const listarTodosPedidos = async (req, res) => {
     } catch (err) { /*...*/ }
 };
 
+// 3. ATIVIDADES RECENTES (Versão Ideal - Com createdAt)
 const getRecentActivity = async (req, res) => {
     try {
         const [novosUsuarios, novosAnimais, adocoesRecentes] = await Promise.all([
-            // 1. Últimos Usuários (CORRIGIDO: Ordena por ID, pois não tem createdAt)
+            
+            // 1. Usuários: Agora ordenando por DATA real
             prisma.account.findMany({
                 take: 3,
-                orderBy: { id: 'desc' }, 
-                select: { id: true, nome: true, role: true } // Removido createdAt
+                orderBy: { createdAt: 'desc' }, // <--- VOLTAMOS PARA CREATEDAT
+                select: { id: true, nome: true, role: true, createdAt: true } // <--- SELECIONAMOS A DATA
             }),
-            // 2. Últimos Animais (Mantém createdAt pois existe na tabela Animal)
+
+            // 2. Animais
             prisma.animal.findMany({
                 take: 3,
                 orderBy: { createdAt: 'desc' },
                 select: { id: true, nome: true, createdAt: true }
             }),
-            // 3. Últimas Adoções
+
+            // 3. Adoções
             prisma.animal.findMany({
                 where: { status: 'ADOTADO' },
                 take: 3,
@@ -100,13 +104,15 @@ const getRecentActivity = async (req, res) => {
         ]);
 
         const activityList = [
+            // Mapeia usuários usando a data REAL do banco
             ...novosUsuarios.map(u => ({
                 id: `usr-${u.id}`,
                 tipo: 'USUARIO',
                 texto: `Novo usuário: ${u.nome} (${u.role})`,
-                data: new Date(), // Data atual como fallback
+                data: u.createdAt, // <--- Data real aqui!
                 link: '/admin/usuarios'
             })),
+            
             ...novosAnimais.map(a => ({
                 id: `pet-${a.id}`,
                 tipo: 'ANIMAL',
@@ -114,6 +120,7 @@ const getRecentActivity = async (req, res) => {
                 data: a.createdAt,
                 link: `/animal/${a.id}`
             })),
+            
             ...adocoesRecentes.map(a => ({
                 id: `adoc-${a.id}`,
                 tipo: 'ADOCAO',
@@ -123,7 +130,7 @@ const getRecentActivity = async (req, res) => {
             }))
         ];
 
-        // Ordena
+        // Ordena tudo
         activityList.sort((a, b) => new Date(b.data) - new Date(a.data));
         
         res.json(activityList.slice(0, 5));
