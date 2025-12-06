@@ -184,10 +184,58 @@ const listarTodosAnimais = async (req, res) => {
     }
 };
 
+const listarTodasOngs = async (req, res) => {
+    try {
+        const ongs = await prisma.account.findMany({
+            where: { role: 'ONG' },
+            include: {
+                ong: true, // Traz dados específicos (CNPJ, Endereço)
+                _count: {
+                    select: { animals: true } // Conta quantos animais essa conta tem
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        // Formata para facilitar no front
+        const ongsFormatadas = ongs.map(conta => ({
+            id: conta.id,
+            nome: conta.ong?.nome || conta.nome, // Preferência pelo Nome Fantasia
+            email: conta.email,
+            cnpj: conta.ong?.cnpj || "Não informado",
+            localizacao: conta.ong?.cidade ? `${conta.ong.cidade}, ${conta.ong.estado}` : "Local não inf.",
+            animaisAtivos: conta._count.animals,
+            status: 'Ativa' // Por enquanto não temos bloqueio, então todas são ativas
+        }));
+
+        res.json(ongsFormatadas);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao listar ONGs.' });
+    }
+};
+
+// 6. DELETAR USUÁRIO (Serve para ONG ou Pessoa)
+const deletarUsuario = async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Deleta a conta (O Prisma deleta a entrada na tabela ONG automaticamente se tiver Cascade)
+        await prisma.account.delete({
+            where: { id: Number(id) }
+        });
+        res.json({ message: "Usuário excluído com sucesso." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao excluir usuário. Verifique se existem dependências." });
+    }
+};
+
 // --- EXPORTS OBRIGATÓRIOS ---
 module.exports = {
     getDashboardStats,
     listarTodosPedidos,
     getRecentActivity,
-    listarTodosAnimais // <--- AGORA ELA ESTÁ AQUI
+    listarTodosAnimais,
+    deletarUsuario,
+    listarTodasOngs
 };
