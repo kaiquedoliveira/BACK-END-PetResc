@@ -19,4 +19,6 @@ router.get('/ongs/:id', authenticateToken, adminController.obterDetalhesOng);
 
 router.get('/ongs/:id/pets', authenticateToken, adminController.listarPetsDaOng);
 
+router.get('/usuarios', authenticateToken, adminController.listarUsuariosPublicos);
+
 module.exports = router;

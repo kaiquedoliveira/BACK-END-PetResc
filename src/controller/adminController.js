@@ -291,7 +291,36 @@ const listarPetsDaOng = async (req, res) => {
     }
 };
 
-// --- EXPORTS OBRIGATÓRIOS ---
+const listarUsuariosPublicos = async (req, res) => {
+    try {
+        const usuarios = await prisma.account.findMany({
+            where: { role: 'PUBLICO' }, 
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                nome: true,
+                email: true,
+                createdAt: true,
+                role: true
+            }
+        });
+
+        const usuariosFormatados = usuarios.map(user => ({
+            id: user.id,
+            nome: user.nome,
+            email: user.email,
+            tipo: 'Usuário Comum', 
+            data: user.createdAt,
+            status: 'Ativo' 
+        }));
+
+        res.json(usuariosFormatados);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao listar usuários." });
+    }
+};
+
 module.exports = {
     getDashboardStats,
     listarTodosPedidos,
@@ -300,5 +329,6 @@ module.exports = {
     deletarUsuario,
     listarTodasOngs,
     listarPetsDaOng,
-    obterDetalhesOng
+    obterDetalhesOng,
+    listarUsuariosPublicos
 };
