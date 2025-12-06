@@ -21,4 +21,6 @@ router.get('/ongs/:id/pets', authenticateToken, adminController.listarPetsDaOng)
 
 router.get('/usuarios', authenticateToken, adminController.listarUsuariosPublicos);
 
+router.get('/logs', authenticateToken, adminController.getSystemLogs);
+
 module.exports = router;

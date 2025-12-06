@@ -321,6 +321,83 @@ const listarUsuariosPublicos = async (req, res) => {
     }
 };
 
+const getSystemLogs = async (req, res) => {
+    try {
+        const [novosUsuarios, novosAnimais, novasCampanhas, pedidosAdocao] = await Promise.all([
+            // 1. Usuários
+            prisma.account.findMany({
+                take: 20,
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, nome: true, role: true, createdAt: true }
+            }),
+            // 2. Animais
+            prisma.animal.findMany({
+                take: 20,
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, nome: true, createdAt: true, account: { select: { nome: true } } }
+            }),
+            // 3. Campanhas
+            prisma.campanha.findMany({
+                take: 20,
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, titulo: true, createdAt: true, usuarioCriador: { select: { nome: true } } }
+            }),
+            // 4. Pedidos de Adoção (Mudanças de status)
+            prisma.pedidoAdocao.findMany({
+                take: 20,
+                orderBy: { dataPedido: 'desc' },
+                select: { 
+                    id: true, status: true, dataPedido: true, 
+                    candidato: { select: { nome: true } },
+                    animal: { select: { nome: true } }
+                }
+            })
+        ]);
+
+        // Padroniza tudo para o formato de Log
+        const logs = [
+            ...novosUsuarios.map(u => ({
+                id: `usr-${u.id}`,
+                dataISO: u.createdAt,
+                tipo: 'SUCESSO', // Cadastro é sempre sucesso
+                mensagem: `Novo cadastro de ${u.role === 'ONG' ? 'ONG' : 'Usuário'}: ${u.nome}`,
+                detalhes: [`ID: ${u.id}`, `Perfil: ${u.role}`]
+            })),
+            ...novosAnimais.map(a => ({
+                id: `pet-${a.id}`,
+                dataISO: a.createdAt,
+                tipo: 'INFO',
+                mensagem: `Novo animal registrado: ${a.nome}`,
+                detalhes: [`Responsável: ${a.account?.nome}`, `ID Pet: ${a.id}`]
+            })),
+            ...novasCampanhas.map(c => ({
+                id: `camp-${c.id}`,
+                dataISO: c.createdAt,
+                tipo: 'INFO', // Campanhas são informativas/sucesso
+                mensagem: `Nova campanha lançada: ${c.titulo}`,
+                detalhes: [`Criado por: ${c.usuarioCriador?.nome}`]
+            })),
+            ...pedidosAdocao.map(p => ({
+                id: `ped-${p.id}`,
+                dataISO: p.dataPedido,
+                tipo: p.status === 'APROVADO' ? 'SUCESSO' : (p.status === 'RECUSADO' ? 'ERRO' : 'INFO'),
+                mensagem: `Adoção ${p.status}: ${p.animal.nome} por ${p.candidato.nome}`,
+                detalhes: [`Status atual: ${p.status}`, `Candidato: ${p.candidato.nome}`]
+            }))
+        ];
+
+        // Ordena do mais recente para o mais antigo
+        logs.sort((a, b) => new Date(b.dataISO) - new Date(a.dataISO));
+
+        // Retorna os top 50 logs gerais
+        res.json(logs.slice(0, 50));
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao gerar logs." });
+    }
+};
+
 module.exports = {
     getDashboardStats,
     listarTodosPedidos,
@@ -330,5 +407,6 @@ module.exports = {
     listarTodasOngs,
     listarPetsDaOng,
     obterDetalhesOng,
-    listarUsuariosPublicos
+    listarUsuariosPublicos,
+    getSystemLogs
 };
