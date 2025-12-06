@@ -342,13 +342,13 @@ const getSystemLogs = async (req, res) => {
                 orderBy: { createdAt: 'desc' },
                 select: { id: true, titulo: true, createdAt: true, usuarioCriador: { select: { nome: true } } }
             }),
-            // 4. Pedidos de Adoção (Mudanças de status)
+            // 4. Pedidos de Adoção (CORREÇÃO AQUI: 'account' em vez de 'candidato')
             prisma.pedidoAdocao.findMany({
                 take: 20,
                 orderBy: { dataPedido: 'desc' },
                 select: { 
                     id: true, status: true, dataPedido: true, 
-                    candidato: { select: { nome: true } },
+                    account: { select: { nome: true } }, // <--- MUDOU DE candidato PARA account
                     animal: { select: { nome: true } }
                 }
             })
@@ -359,7 +359,7 @@ const getSystemLogs = async (req, res) => {
             ...novosUsuarios.map(u => ({
                 id: `usr-${u.id}`,
                 dataISO: u.createdAt,
-                tipo: 'SUCESSO', // Cadastro é sempre sucesso
+                tipo: 'SUCESSO',
                 mensagem: `Novo cadastro de ${u.role === 'ONG' ? 'ONG' : 'Usuário'}: ${u.nome}`,
                 detalhes: [`ID: ${u.id}`, `Perfil: ${u.role}`]
             })),
@@ -373,7 +373,7 @@ const getSystemLogs = async (req, res) => {
             ...novasCampanhas.map(c => ({
                 id: `camp-${c.id}`,
                 dataISO: c.createdAt,
-                tipo: 'INFO', // Campanhas são informativas/sucesso
+                tipo: 'INFO',
                 mensagem: `Nova campanha lançada: ${c.titulo}`,
                 detalhes: [`Criado por: ${c.usuarioCriador?.nome}`]
             })),
@@ -381,15 +381,15 @@ const getSystemLogs = async (req, res) => {
                 id: `ped-${p.id}`,
                 dataISO: p.dataPedido,
                 tipo: p.status === 'APROVADO' ? 'SUCESSO' : (p.status === 'RECUSADO' ? 'ERRO' : 'INFO'),
-                mensagem: `Adoção ${p.status}: ${p.animal.nome} por ${p.candidato.nome}`,
-                detalhes: [`Status atual: ${p.status}`, `Candidato: ${p.candidato.nome}`]
+                // CORREÇÃO NO MAP TAMBÉM: p.account.nome
+                mensagem: `Adoção ${p.status}: ${p.animal?.nome || 'Pet'} por ${p.account?.nome || 'Usuário'}`,
+                detalhes: [`Status atual: ${p.status}`, `Solicitante: ${p.account?.nome}`]
             }))
         ];
 
-        // Ordena do mais recente para o mais antigo
+        // Ordena
         logs.sort((a, b) => new Date(b.dataISO) - new Date(a.dataISO));
 
-        // Retorna os top 50 logs gerais
         res.json(logs.slice(0, 50));
 
     } catch (err) {
