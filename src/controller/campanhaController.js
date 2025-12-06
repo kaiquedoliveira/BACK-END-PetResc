@@ -82,9 +82,15 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
 
+  // Validação: Se não for número, rejeita antes de chamar o Prisma
+  const campanhaId = Number(id);
+  if (isNaN(campanhaId)) {
+      return res.status(400).json({ message: "ID inválido." });
+  }
+
   try {
     const campanha = await prisma.campanha.findUnique({
-      where: { id: Number(id) },
+      where: { id: campanhaId }, // Usa a variável convertida
       include: {
         ong: {
           select: {
@@ -111,6 +117,7 @@ exports.getById = async (req, res) => {
     return res.status(500).json({ message: "Erro ao buscar campanha." });
   }
 };
+
 
 exports.listarMinhas = async (req, res) => {
   try {
