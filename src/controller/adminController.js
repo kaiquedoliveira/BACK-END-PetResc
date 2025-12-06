@@ -5,33 +5,20 @@ const prisma = new PrismaClient();
 const getDashboardStats = async (req, res) => {
     try {
         const [
-            totalUsuarios,
-            totalOngs,
-            totalAdmins,
-            totalAnimais,
-            animaisDisponiveis,
-            animaisAdotados,
-            animaisEncontrados, // <--- NOVO
-            pedidosPendentes,
-            pedidosAprovados,
+            totalUsuarios, totalOngs, totalAdmins,
+            totalAnimais, animaisDisponiveis, animaisAdotados, animaisEncontrados,
+            pedidosPendentes, pedidosAprovados,
             totalDoacoes
         ] = await Promise.all([
-            // Usuários
             prisma.account.count(),
             prisma.account.count({ where: { role: 'ONG' } }),
             prisma.account.count({ where: { role: 'ADMIN' } }),
-            
-            // Animais
             prisma.animal.count(),
             prisma.animal.count({ where: { status: 'DISPONIVEL' } }),
             prisma.animal.count({ where: { status: 'ADOTADO' } }),
-            prisma.animal.count({ where: { status: 'ENCONTRADO' } }), // <--- CONTAGEM NOVA
-
-            // Pedidos
+            prisma.animal.count({ where: { status: 'ENCONTRADO' } }),
             prisma.pedidoAdocao.count({ where: { status: 'PENDENTE' } }),
             prisma.pedidoAdocao.count({ where: { status: 'APROVADO' } }),
-
-            // Financeiro
             prisma.doacao.aggregate({ _sum: { valor: true } })
         ]);
 
@@ -46,7 +33,7 @@ const getDashboardStats = async (req, res) => {
                 total: totalAnimais,
                 disponiveis: animaisDisponiveis,
                 adotados: animaisAdotados,
-                encontrados: animaisEncontrados // <--- ENVIANDO PARA O FRONT
+                encontrados: animaisEncontrados
             },
             pedidos: {
                 pendentes: pedidosPendentes,
@@ -56,45 +43,74 @@ const getDashboardStats = async (req, res) => {
                 totalArrecadado: totalDoacoes._sum.valor || 0
             }
         });
-
     } catch (err) {
         console.error("Erro dashboard admin:", err);
         res.status(500).json({ error: 'Erro ao carregar estatísticas.' });
     }
 };
 
-// ... Mantenha a função listarTodosPedidos aqui ...
+// 2. LISTAGEM: Todos os Pedidos de Adoção
 const listarTodosPedidos = async (req, res) => {
-    // (Código que já estava aqui)
-    // ...
-    // Só copiei a estrutura para lembrar de não apagar
     try {
-        const pedidos = await prisma.pedidoAdocao.findMany({ /*...*/ });
-        // ...
+        const pedidos = await prisma.pedidoAdocao.findMany({
+            orderBy: { dataPedido: 'desc' },
+            include: {
+                candidato: {
+                    select: {
+                        nome: true, email: true, telefone: true, cpf: true, cidade: true, estado: true
+                    }
+                },
+                animal: {
+                    select: {
+                        nome: true, photoURL: true, especie: true,
+                        account: {
+                            select: {
+                                nome: true, email: true,
+                                ong: { select: { nome: true } }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const pedidosFormatados = pedidos.map(pedido => ({
+            id: pedido.id,
+            status: pedido.status,
+            data: pedido.dataPedido,
+            candidato: {
+                nome: pedido.candidato.nome,
+                contato: pedido.candidato.telefone || pedido.candidato.email,
+                local: `${pedido.candidato.cidade || 'N/A'} - ${pedido.candidato.estado || 'UF'}`
+            },
+            animal: pedido.animal.nome,
+            responsavel: pedido.animal.account.ong?.nome || pedido.animal.account.nome
+        }));
+
         res.json(pedidosFormatados);
-    } catch (err) { /*...*/ }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao listar pedidos.' });
+    }
 };
 
-// 3. ATIVIDADES RECENTES (Versão Ideal - Com createdAt)
+// 3. ATIVIDADES RECENTES (Com createdAt)
 const getRecentActivity = async (req, res) => {
     try {
         const [novosUsuarios, novosAnimais, adocoesRecentes] = await Promise.all([
-            
-            // 1. Usuários: Agora ordenando por DATA real
+            // Usuários (Ordenados por Data)
             prisma.account.findMany({
                 take: 3,
-                orderBy: { createdAt: 'desc' }, // <--- VOLTAMOS PARA CREATEDAT
-                select: { id: true, nome: true, role: true, createdAt: true } // <--- SELECIONAMOS A DATA
+                orderBy: { createdAt: 'desc' },
+                select: { id: true, nome: true, role: true, createdAt: true }
             }),
-
-            // 2. Animais
+            // Animais (Ordenados por Data)
             prisma.animal.findMany({
                 take: 3,
                 orderBy: { createdAt: 'desc' },
                 select: { id: true, nome: true, createdAt: true }
             }),
-
-            // 3. Adoções
+            // Adoções
             prisma.animal.findMany({
                 where: { status: 'ADOTADO' },
                 take: 3,
@@ -104,15 +120,13 @@ const getRecentActivity = async (req, res) => {
         ]);
 
         const activityList = [
-            // Mapeia usuários usando a data REAL do banco
             ...novosUsuarios.map(u => ({
                 id: `usr-${u.id}`,
                 tipo: 'USUARIO',
                 texto: `Novo usuário: ${u.nome} (${u.role})`,
-                data: u.createdAt, // <--- Data real aqui!
+                data: u.createdAt,
                 link: '/admin/usuarios'
             })),
-            
             ...novosAnimais.map(a => ({
                 id: `pet-${a.id}`,
                 tipo: 'ANIMAL',
@@ -120,7 +134,6 @@ const getRecentActivity = async (req, res) => {
                 data: a.createdAt,
                 link: `/animal/${a.id}`
             })),
-            
             ...adocoesRecentes.map(a => ({
                 id: `adoc-${a.id}`,
                 tipo: 'ADOCAO',
@@ -130,9 +143,7 @@ const getRecentActivity = async (req, res) => {
             }))
         ];
 
-        // Ordena tudo
         activityList.sort((a, b) => new Date(b.data) - new Date(a.data));
-        
         res.json(activityList.slice(0, 5));
 
     } catch (err) {
@@ -141,8 +152,42 @@ const getRecentActivity = async (req, res) => {
     }
 };
 
+// 4. LISTAR TODOS OS ANIMAIS (ESSA ERA A QUE FALTAVA!)
+const listarTodosAnimais = async (req, res) => {
+    try {
+        const animais = await prisma.animal.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                account: {
+                    select: { nome: true, email: true, role: true }
+                },
+                _count: {
+                    select: { 
+                        pedidosAdocao: { where: { status: 'PENDENTE' } } 
+                    }
+                }
+            }
+        });
+
+        const animaisFormatados = animais.map(pet => {
+            let statusCalculado = pet.status;
+            if (pet.status === 'DISPONIVEL' && pet._count.pedidosAdocao > 0) {
+                statusCalculado = 'AGUARDANDO';
+            }
+            return { ...pet, statusReal: statusCalculado };
+        });
+
+        res.json(animaisFormatados);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao listar animais.' });
+    }
+};
+
+// --- EXPORTS OBRIGATÓRIOS ---
 module.exports = {
     getDashboardStats,
     listarTodosPedidos,
-    getRecentActivity
+    getRecentActivity,
+    listarTodosAnimais // <--- AGORA ELA ESTÁ AQUI
 };

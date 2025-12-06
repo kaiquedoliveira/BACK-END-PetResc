@@ -11,4 +11,6 @@ router.get('/pedidos', authenticateToken, adminController.listarTodosPedidos);
 
 router.get('/activity', authenticateToken, adminController.getRecentActivity);
 
+router.get('/animais', authenticateToken, adminController.listarTodosAnimais);
+
 module.exports = router;
