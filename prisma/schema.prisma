@@ -25,6 +25,7 @@ model Account {
   bairro      String?
   cidade      String?
   estado      String?
+  createdAt DateTime @default(now())
 
   resetToken       String?
   resetTokenExpiry DateTime?
