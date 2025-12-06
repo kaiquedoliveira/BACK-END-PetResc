@@ -111,3 +111,22 @@ exports.getById = async (req, res) => {
     return res.status(500).json({ message: "Erro ao buscar campanha." });
   }
 };
+
+exports.listarMinhas = async (req, res) => {
+  try {
+    const usuarioId = req.user.id; // ID do usuário logado (do middleware)
+
+    const minhasCampanhas = await prisma.campanha.findMany({
+      where: {
+        usuarioCriadorId: usuarioId
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return res.json(minhasCampanhas);
+
+  } catch (error) {
+    console.error("Erro ao listar minhas campanhas:", error);
+    return res.status(500).json({ message: "Erro ao buscar campanhas." });
+  }
+};

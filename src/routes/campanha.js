@@ -11,6 +11,8 @@ router.get('/', campanhaController.getAll);
 // Campanha por ID (ID é string)
 router.get('/:id', campanhaController.getById);
 
+router.get('/minhas', campanhaController.listarMinhas);
+
 // Criar campanha
 router.post(
   '/',
