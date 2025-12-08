@@ -9,6 +9,9 @@ router.post('/', pedidosController.criarPedido);
 router.get('/meus-pedidos', pedidosController.listarMeusPedidos);
 
 
+router.get('/formulario/:animalId',authorizeRole(['ADMIN', 'ONG', 'PUBLICO']),pedidosController.verificarFormulario);
+
+
 router.get('/gerenciar', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), pedidosController.listarPedidosParaGerenciamento);
 
 router.get('/animal/:animalId', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), pedidosController.listarPedidosPorAnimal);
