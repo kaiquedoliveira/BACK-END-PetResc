@@ -241,10 +241,10 @@ exports.login = async (req, res) => {
             // Só tenta buscar se sobrou algum número (para evitar buscas vazias)
             if (loginLimpo.length > 0) {
                 // Busca na tabela ONG pelo CNPJ
-                const ongEncontrada = await prisma.ong.findUnique({
-                    where: { cnpj: loginLimpo }, 
-                    select: { accountId: true } // Pega o ID da Conta Principal
-                });
+               const ongEncontrada = await prisma.ong.findFirst({
+    where: { cnpj: loginLimpo }, 
+    select: { accountId: true }
+});
 
                 // Se achou a ONG, buscamos a conta (Account) vinculada a ela para checar a senha
                 if (ongEncontrada) {
