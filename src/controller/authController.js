@@ -124,18 +124,49 @@ exports.registerOng = async (req, res) => {
    LOGIN
 =========================================================== */
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+    // O frontend manda o valor no campo 'email', seja ele um email ou CNPJ
+    const { email, password } = req.body; 
+
     try {
-        const usuario = await prisma.account.findUnique({
-            where: { email },
+        let usuario = null;
+
+        // PASSO 1: Tenta buscar como se fosse um E-MAIL normal (Login de usuário comum)
+        usuario = await prisma.account.findUnique({
+            where: { email: email },
             include: { admin: true, ong: true, publico: true }
         });
 
-        if (!usuario) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+        // PASSO 2: Se não achou por e-mail, verifica se é um CNPJ (Login de ONG)
+        if (!usuario) {
+            // Remove tudo que não é número para buscar o CNPJ limpo
+            const loginLimpo = email.replace(/\D/g, ''); 
+            
+            // Só tenta buscar se sobrou algum número (para evitar buscas vazias)
+            if (loginLimpo.length > 0) {
+                // Busca na tabela ONG pelo CNPJ
+                const ongEncontrada = await prisma.ong.findUnique({
+                    where: { cnpj: loginLimpo }, 
+                    select: { accountId: true } // Pega o ID da Conta Principal
+                });
 
+                // Se achou a ONG, buscamos a conta (Account) vinculada a ela para checar a senha
+                if (ongEncontrada) {
+                    usuario = await prisma.account.findUnique({
+                        where: { id: ongEncontrada.accountId },
+                        include: { admin: true, ong: true, publico: true }
+                    });
+                }
+            }
+        }
+
+        // PASSO 3: Validação final (se não achou nem por email, nem por CNPJ)
+        if (!usuario) return res.status(401).json({ error: 'Login ou senha inválidos.' });
+
+        // PASSO 4: Verifica a senha (que está na tabela Account)
         const passwordMatch = await bcrypt.compare(password, usuario.password); 
-        if (!passwordMatch) return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+        if (!passwordMatch) return res.status(401).json({ error: 'Login ou senha inválidos.' });
 
+        // Gera o token
         const token = jwt.sign(
             { id: usuario.id, role: usuario.role, name: usuario.nome }, 
             JWT_SECRET,
@@ -146,11 +177,10 @@ exports.login = async (req, res) => {
         res.json({ token, usuario: usuarioSemSenha });
 
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro ao fazer login.' });
+        console.error("Erro no login:", err);
+        res.status(500).json({ error: 'Erro interno ao fazer login.' });
     }
 };
-
 /* ===========================================================
    PERFIL
 =========================================================== */
