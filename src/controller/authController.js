@@ -2,11 +2,79 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
-const { sendEmail } = require('../services/emailService'); // RESEND AQUI
+const { sendEmail } = require('../services/emailService'); 
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pet123';
 const JWT_RESET_SECRET = process.env.JWT_RESET_SECRET || 'pet_reset_secret_super_seguro';
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+
+// ================================
+// VALIDAÇÕES
+// ================================
+const validarEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+};
+
+const validarCPF = (cpf) => {
+    cpf = cpf.replace(/\D/g, '');
+    if (cpf.length !== 11) return false;
+    if (/^(\d)\1+$/.test(cpf)) return false;
+
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+        soma += parseInt(cpf[i]) * (10 - i);
+    }
+
+    let dig1 = 11 - (soma % 11);
+    dig1 = dig1 > 9 ? 0 : dig1;
+    if (dig1 !== parseInt(cpf[9])) return false;
+
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+        soma += parseInt(cpf[i]) * (11 - i);
+    }
+
+    let dig2 = 11 - (soma % 11);
+    dig2 = dig2 > 9 ? 0 : dig2;
+
+    return dig2 === parseInt(cpf[10]);
+};
+
+const validarCNPJ = (cnpj) => {
+    cnpj = cnpj.replace(/[^\d]+/g, '');
+
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1+$/.test(cnpj)) return false;
+
+    let tamanho = cnpj.length - 2;
+    let numeros = cnpj.substring(0, tamanho);
+    let digitos = cnpj.substring(tamanho);
+    let soma = 0;
+    let pos = tamanho - 7;
+
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+
+    let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    if (resultado != digitos.charAt(0)) return false;
+
+    tamanho++;
+    numeros = cnpj.substring(0, tamanho);
+    soma = 0;
+    pos = tamanho - 7;
+
+    for (let i = tamanho; i >= 1; i--) {
+        soma += numeros.charAt(tamanho - i) * pos--;
+        if (pos < 2) pos = 9;
+    }
+
+    resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    return resultado == digitos.charAt(1);
+};
 
 /* ===========================================================
    REGISTRO DE USUÁRIO PÚBLICO
@@ -18,10 +86,23 @@ exports.register = async (req, res) => {
         return res.status(400).json({ error: "Nome, email, cpf e senha são obrigatórios." });
     }
 
+    if (!validarEmail(email)) {
+        return res.status(400).json({ error: "E-mail inválido." });
+    }
+
+    if (!validarCPF(cpf)) {
+        return res.status(400).json({ error: "CPF inválido." });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ error: "A senha deve ter pelo menos 6 caracteres." });
+    }
+
     let novaConta; 
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
+
         novaConta = await prisma.account.create({
             data: {
                 nome,
@@ -50,7 +131,6 @@ exports.register = async (req, res) => {
         <p>Agradecemos seu cadastro!</p>
     `;
     
-    // Agora usando RESEND
     sendEmail(email, assunto, html);
 
     res.status(201).json(novaConta);
@@ -75,18 +155,35 @@ exports.registerOng = async (req, res) => {
     if (!name || !email || !cnpj || !password || !nomeOng || !cpf) {
         return res.status(400).json({ error: "Dados essenciais (nome, email, cpf, cnpj, senha) são obrigatórios." });
     }
+    
+    if (!validarEmail(email)) {
+        return res.status(400).json({ error: "E-mail inválido." });
+    }
+
+    if (!validarCPF(cpf)) {
+        return res.status(400).json({ error: "CPF inválido." });
+    }
+
+    if (!validarCNPJ(cnpj)) {
+        return res.status(400).json({ error: "CNPJ inválido." });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ error: "A senha deve ter pelo menos 6 caracteres." });
+    }
 
     let novaContaOng; 
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
+
         novaContaOng = await prisma.account.create({
             data: {
                 nome: name, 
                 email,
                 telefone,
                 password: hashedPassword,
-                cpf: cpf,      
+                cpf,      
                 role: 'ONG',                
                 ong: {         
                     create: {
@@ -189,6 +286,11 @@ exports.atualizarPerfil = async (req, res) => {
         if (telefone) dadosParaAtualizar.telefone = telefone;
 
         if (password && password.trim() !== "") {
+
+            if (password.length < 6) {
+                return res.status(400).json({ error: "A nova senha deve ter pelo menos 6 caracteres." });
+            }
+
             if (!currentPassword) {
                 return res.status(400).json({ error: "Para alterar a senha, informe sua senha atual." });
             }
@@ -227,7 +329,6 @@ exports.forgotPassword = async (req, res) => {
         const account = await prisma.account.findUnique({ where: { email } });
 
         if (!account) {
-            // Segurança: não revelar se email existe
             return res.json({ message: "Código enviado se o e-mail existir." });
         }
 
@@ -301,6 +402,10 @@ exports.resetPassword = async (req, res) => {
 
     if (!email || !code || !newPassword) {
         return res.status(400).json({ error: "Dados incompletos." });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: "A nova senha deve ter pelo menos 6 caracteres." });
     }
 
     try {
