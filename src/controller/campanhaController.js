@@ -4,12 +4,24 @@ const prisma = new PrismaClient();
 exports.create = async (req, res) => {
   try {
     const { titulo, descricao, meta_financeira, data_limite, itens_descricao } = req.body;
+    
+    // --- CORREÇÃO AQUI ---
+    // O middleware de auth coloca os dados em req.user
+    const userId = req.user.id; 
 
     if (!titulo || !meta_financeira || !data_limite) {
       return res.status(400).json({ message: "Campos obrigatórios inválidos" });
     }
 
-    // Converter lista de itens
+    // 1. Busca a conta para saber se é uma ONG e pegar o ID da ONG
+    const account = await prisma.account.findUnique({
+        where: { id: userId },
+        include: { ong: true }
+    });
+
+    if (!account) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    // Converter lista de itens (FormData envia string)
     let itensArray = [];
     try {
       itensArray = JSON.parse(itens_descricao || "[]");
@@ -17,9 +29,9 @@ exports.create = async (req, res) => {
       console.warn("Itens inválidos, usando array vazio");
     }
 
-    // Multer/Cloudinary retorna file.path
     const imagemUrl = req.file ? req.file.path : null;
 
+    // 2. Cria a campanha
     const campanha = await prisma.campanha.create({
       data: {
         titulo,
@@ -28,7 +40,9 @@ exports.create = async (req, res) => {
         dataLimite: new Date(data_limite),
         itensDescricao: itensArray,
         imagemUrl,
-        usuarioCriadorId: req.userId,
+        usuarioCriadorId: userId,
+        // Se a conta tiver uma ONG associada, salva o ID dela
+        ongId: account.ong ? account.ong.id : null 
       },
     });
 
@@ -52,7 +66,7 @@ exports.getAll = async (req, res) => {
           select: { nome: true, email: true }
         },
         ong: {
-          select: { nome: true }
+          select: { nome: true, cidade: true, estado: true } // Adicionei cidade/estado para exibir no front
         }
       }
     });
@@ -68,9 +82,15 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
   const { id } = req.params;
 
+  // Validação: Se não for número, rejeita antes de chamar o Prisma
+  const campanhaId = Number(id);
+  if (isNaN(campanhaId)) {
+      return res.status(400).json({ message: "ID inválido." });
+  }
+
   try {
     const campanha = await prisma.campanha.findUnique({
-      where: { id: Number(id) },
+      where: { id: campanhaId }, // Usa a variável convertida
       include: {
         ong: {
           select: {
@@ -95,5 +115,25 @@ exports.getById = async (req, res) => {
   } catch (error) {
     console.error("Erro no getById:", error);
     return res.status(500).json({ message: "Erro ao buscar campanha." });
+  }
+};
+
+
+exports.listarMinhas = async (req, res) => {
+  try {
+    const usuarioId = req.user.id; // ID do usuário logado (do middleware)
+
+    const minhasCampanhas = await prisma.campanha.findMany({
+      where: {
+        usuarioCriadorId: usuarioId
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return res.json(minhasCampanhas);
+
+  } catch (error) {
+    console.error("Erro ao listar minhas campanhas:", error);
+    return res.status(500).json({ message: "Erro ao buscar campanhas." });
   }
 };

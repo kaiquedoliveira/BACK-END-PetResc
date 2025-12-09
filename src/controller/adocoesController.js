@@ -297,10 +297,42 @@ const atualizarStatusPedido = async (req, res) => {
     }
 };
 
+
+
+const verificarFormulario = async (req, res) => {
+    const { animalId } = req.params;
+    const usuarioId = req.user.id;
+
+    try {
+        const pedido = await prisma.pedidoAdocao.findFirst({
+            where: {
+                animalId: parseInt(animalId),
+                candidatoId: usuarioId
+            },
+            include: { formulario: true }
+        });
+
+        if (!pedido || !pedido.formulario) {
+            return res.status(404).json({ responded: false });
+        }
+
+        return res.status(200).json({
+            responded: true,
+            formulario: pedido.formulario
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro interno." });
+    }
+};
+
+
 module.exports = {
     criarPedido,
     listarMeusPedidos,
     listarPedidosParaGerenciamento,
     listarPedidosPorAnimal,
-    atualizarStatusPedido
+    atualizarStatusPedido,
+    verificarFormulario
 };

@@ -251,6 +251,10 @@ const alterarSenha = async (req, res) => {
         return res.status(400).json({ error: 'Por favor, informe a senha antiga e a nova senha.' });
     }
 
+    if (novaSenha.length < 6) {
+    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+}
+
     try {
         const usuario = await prisma.account.findUnique({
             where: { id: userId }

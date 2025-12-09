@@ -1,19 +1,26 @@
 const express = require('express');
 const router = express.Router();
-
-const usuariosController = require('../controller/usuariosController');
 const adminController = require('../controller/adminController');
-const relatoriosController = require('../controller/relatoriosController'); 
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
-const { authorizeRole, authenticateToken } = require('../middlewares/authMiddleware');
+router.get('/stats', authenticateToken, adminController.getDashboardStats);
 
-router.use(authenticateToken);
-router.use(authorizeRole(['ADMIN']));
+router.get('/pedidos', authenticateToken, adminController.listarTodosPedidos);
 
-router.get('/usuarios', usuariosController.listarUsuarios);
+router.get('/activity', authenticateToken, adminController.getRecentActivity);
 
-router.get('/pedidos-adocao', adminController.listarTodosPedidos);
+router.get('/animais', authenticateToken, adminController.listarTodosAnimais);
 
-router.get('/estatisticas', relatoriosController.obterEstatisticasGerais); 
+router.get('/ongs', authenticateToken, adminController.listarTodasOngs);
+
+router.delete('/usuarios/:id', authenticateToken, adminController.deletarUsuario);
+
+router.get('/ongs/:id', authenticateToken, adminController.obterDetalhesOng);
+
+router.get('/ongs/:id/pets', authenticateToken, adminController.listarPetsDaOng);
+
+router.get('/usuarios', authenticateToken, adminController.listarUsuariosPublicos);
+
+router.get('/logs', authenticateToken, adminController.getSystemLogs);
 
 module.exports = router;

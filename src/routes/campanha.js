@@ -5,13 +5,13 @@ const { uploadCampanha } = require('../config/multer');
 const campanhaController = require('../controller/campanhaController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 
-// Todas as campanhas
 router.get('/', campanhaController.getAll);
 
-// Campanha por ID (ID é string)
-router.get('/:id', campanhaController.getById);
 
-// Criar campanha
+router.get('/minhas', authenticateToken, campanhaController.listarMinhas);
+
+
+router.get('/:id', campanhaController.getById);
 router.post(
   '/',
   authenticateToken,

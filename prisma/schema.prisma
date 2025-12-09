@@ -25,6 +25,7 @@ model Account {
   bairro      String?
   cidade      String?
   estado      String?
+  createdAt DateTime @default(now())
 
   resetToken       String?
   resetTokenExpiry DateTime?
@@ -114,7 +115,7 @@ model Animal {
   nome            String
   especie         String
   raca            String?
-  idade           Int?
+  idade           String?
   status          StatusAdocao @default(DISPONIVEL)
   porte           String?
   sexo            String?
@@ -255,6 +256,7 @@ model Ficha {
   nivelEnergia          Int?
   conviveCom            String?
   necessidadesEspeciais String?
+  observacoes     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
