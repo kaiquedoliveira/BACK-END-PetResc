@@ -176,6 +176,9 @@ exports.registerOng = async (req, res) => {
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // CORREÇÃO: Limpa o CNPJ para salvar apenas números no banco
+        const cnpjLimpo = cnpj.replace(/\D/g, '');
 
         novaContaOng = await prisma.account.create({
             data: {
@@ -183,12 +186,12 @@ exports.registerOng = async (req, res) => {
                 email,
                 telefone,
                 password: hashedPassword,
-                cpf,      
+                cpf,       
                 role: 'ONG',                
                 ong: {         
                     create: {
                         nome: nomeOng,
-                        cnpj,
+                        cnpj: cnpjLimpo, // Salva limpo
                         descricao,
                         cep, rua, numero, complemento, bairro, cidade, estado
                     }
@@ -218,32 +221,47 @@ exports.registerOng = async (req, res) => {
 };
 
 /* ===========================================================
-   LOGIN
+   LOGIN (Corrigido para aceitar Formatado e Limpo)
 =========================================================== */
 exports.login = async (req, res) => {
-    // O frontend manda o valor no campo 'email', seja ele um email ou CNPJ
     const { email, password } = req.body; 
+
+    console.log("Tentativa de login com:", email);
 
     try {
         let usuario = null;
 
+        // 1. Tenta buscar usuário COMUM por email
         usuario = await prisma.account.findUnique({
             where: { email: email },
             include: { admin: true, ong: true, publico: true }
         });
 
-       if (!usuario) {
+        // 2. Se não achou, assume que pode ser uma ONG (CNPJ)
+        if (!usuario) {
             const loginLimpo = email.replace(/\D/g, ''); 
             
             if (loginLimpo.length > 0) {
-                // CORREÇÃO: Buscamos apenas o 'id', pois na sua modelagem Ong.id == Account.id
-                const ongEncontrada = await prisma.ong.findFirst({
+                // TENTA 1: Busca pelo CNPJ limpo (apenas números)
+                let ongEncontrada = await prisma.ong.findFirst({
                    where: { cnpj: loginLimpo }, 
                    select: { id: true } 
                 });
 
+                // TENTA 2: Se não achou limpo, tenta buscar formatado (para contas antigas)
+                if (!ongEncontrada) {
+                    // Formata: XX.XXX.XXX/0001-XX
+                    const cnpjFormatado = loginLimpo.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+                    console.log("Tentando buscar ONG formatada:", cnpjFormatado);
+                    
+                    ongEncontrada = await prisma.ong.findFirst({
+                        where: { cnpj: cnpjFormatado },
+                        select: { id: true }
+                    });
+                }
+
                 if (ongEncontrada) {
-                    // Como os IDs são iguais, usamos o id da ONG para buscar a conta
+                    // Ong.id == Account.id, busca a conta principal
                     usuario = await prisma.account.findUnique({
                         where: { id: ongEncontrada.id },
                         include: { admin: true, ong: true, publico: true }
@@ -251,10 +269,17 @@ exports.login = async (req, res) => {
                 }
             }
         }
-        if (!usuario) return res.status(401).json({ error: 'Login ou senha inválidos.' });
+
+        if (!usuario) {
+            console.log("Usuário não encontrado.");
+            return res.status(401).json({ error: 'Login ou senha inválidos.' });
+        }
 
         const passwordMatch = await bcrypt.compare(password, usuario.password); 
-        if (!passwordMatch) return res.status(401).json({ error: 'Login ou senha inválidos.' });
+        if (!passwordMatch) {
+            console.log("Senha inválida.");
+            return res.status(401).json({ error: 'Login ou senha inválidos.' });
+        }
 
         // Gera o token
         const token = jwt.sign(
