@@ -227,39 +227,32 @@ exports.login = async (req, res) => {
     try {
         let usuario = null;
 
-        // PASSO 1: Tenta buscar como se fosse um E-MAIL normal (Login de usuário comum)
         usuario = await prisma.account.findUnique({
             where: { email: email },
             include: { admin: true, ong: true, publico: true }
         });
 
-        // PASSO 2: Se não achou por e-mail, verifica se é um CNPJ (Login de ONG)
-        if (!usuario) {
-            // Remove tudo que não é número para buscar o CNPJ limpo
+       if (!usuario) {
             const loginLimpo = email.replace(/\D/g, ''); 
             
-            // Só tenta buscar se sobrou algum número (para evitar buscas vazias)
             if (loginLimpo.length > 0) {
-                // Busca na tabela ONG pelo CNPJ
-               const ongEncontrada = await prisma.ong.findFirst({
-    where: { cnpj: loginLimpo }, 
-    select: { accountId: true }
-});
+                // CORREÇÃO: Buscamos apenas o 'id', pois na sua modelagem Ong.id == Account.id
+                const ongEncontrada = await prisma.ong.findFirst({
+                   where: { cnpj: loginLimpo }, 
+                   select: { id: true } 
+                });
 
-                // Se achou a ONG, buscamos a conta (Account) vinculada a ela para checar a senha
                 if (ongEncontrada) {
+                    // Como os IDs são iguais, usamos o id da ONG para buscar a conta
                     usuario = await prisma.account.findUnique({
-                        where: { id: ongEncontrada.accountId },
+                        where: { id: ongEncontrada.id },
                         include: { admin: true, ong: true, publico: true }
                     });
                 }
             }
         }
-
-        // PASSO 3: Validação final (se não achou nem por email, nem por CNPJ)
         if (!usuario) return res.status(401).json({ error: 'Login ou senha inválidos.' });
 
-        // PASSO 4: Verifica a senha (que está na tabela Account)
         const passwordMatch = await bcrypt.compare(password, usuario.password); 
         if (!passwordMatch) return res.status(401).json({ error: 'Login ou senha inválidos.' });
 
@@ -278,9 +271,7 @@ exports.login = async (req, res) => {
         res.status(500).json({ error: 'Erro interno ao fazer login.' });
     }
 };
-/* ===========================================================
-   PERFIL
-=========================================================== */
+
 exports.me = async (req, res) => {
     try {
         const usuario = await prisma.account.findUnique({
@@ -299,9 +290,7 @@ exports.me = async (req, res) => {
     }
 };
 
-/* ===========================================================
-   ATUALIZAR PERFIL
-=========================================================== */
+
 exports.atualizarPerfil = async (req, res) => {
     const { nome, telefone, password, currentPassword } = req.body; 
     const userId = req.user.id;
@@ -347,9 +336,7 @@ exports.atualizarPerfil = async (req, res) => {
     }
 };
 
-/* ===========================================================
-   RECUPERAÇÃO DE SENHA (OTP)
-=========================================================== */
+
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 exports.forgotPassword = async (req, res) => {
@@ -397,9 +384,7 @@ exports.forgotPassword = async (req, res) => {
     }
 };
 
-/* ===========================================================
-   VALIDAR CÓDIGO
-=========================================================== */
+
 exports.verifyCode = async (req, res) => {
     const { email, code } = req.body;
 
@@ -424,9 +409,7 @@ exports.verifyCode = async (req, res) => {
     }
 };
 
-/* ===========================================================
-   RESETAR SENHA
-=========================================================== */
+
 exports.resetPassword = async (req, res) => {
     const { email, code, newPassword } = req.body;
 
