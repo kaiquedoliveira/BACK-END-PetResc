@@ -247,65 +247,21 @@ exports.registerOng = async (req, res) => {
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
-  console.log("Tentativa de login com:", email);
+  if (!email || !password) {
+      return res.status(400).json({ error: "Email e senha são obrigatórios." });
+  }
 
   try {
-    let usuario = null;
-
-    // 1. Tenta buscar usuário COMUM por email
-    usuario = await prisma.account.findUnique({
-      where: { email: email },
+    const usuario = await prisma.account.findUnique({
+      where: { email },
       include: { admin: true, ong: true, publico: true },
     });
 
-    // 2. Se não achou, assume que pode ser uma ONG (CNPJ)
-    if (!usuario) {
-      const loginLimpo = email.replace(/\D/g, "");
-
-      if (loginLimpo.length > 0) {
-        // TENTA 1: Busca pelo CNPJ limpo (apenas números)
-        let ongEncontrada = await prisma.ong.findFirst({
-          where: { cnpj: loginLimpo },
-          select: { id: true },
-        });
-
-        // TENTA 2: Se não achou limpo, tenta buscar formatado (para contas antigas)
-        if (!ongEncontrada) {
-          // Formata: XX.XXX.XXX/0001-XX
-          const cnpjFormatado = loginLimpo.replace(
-            /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
-            "$1.$2.$3/$4-$5"
-          );
-          console.log("Tentando buscar ONG formatada:", cnpjFormatado);
-
-          ongEncontrada = await prisma.ong.findFirst({
-            where: { cnpj: cnpjFormatado },
-            select: { id: true },
-          });
-        }
-
-        if (ongEncontrada) {
-          // Ong.id == Account.id, busca a conta principal
-          usuario = await prisma.account.findUnique({
-            where: { id: ongEncontrada.id },
-            include: { admin: true, ong: true, publico: true },
-          });
-        }
-      }
-    }
-
-    if (!usuario) {
-      console.log("Usuário não encontrado.");
-      return res.status(401).json({ error: "Login ou senha inválidos." });
-    }
+    if (!usuario) return res.status(401).json({ error: "E-mail ou senha inválidos." });
 
     const passwordMatch = await bcrypt.compare(password, usuario.password);
-    if (!passwordMatch) {
-      console.log("Senha inválida.");
-      return res.status(401).json({ error: "Login ou senha inválidos." });
-    }
+    if (!passwordMatch) return res.status(401).json({ error: "E-mail ou senha inválidos." });
 
-    // Gera o token
     const token = jwt.sign(
       { id: usuario.id, role: usuario.role, name: usuario.nome },
       JWT_SECRET,
@@ -313,16 +269,59 @@ exports.login = async (req, res) => {
     );
 
     const { password: _, ...usuarioSemSenha } = usuario;
-
-    if (usuario.role === "ONG" && usuario.ong) {
-      usuarioSemSenha.nomeOng = usuario.ong.nome; 
-    }
-    
     res.json({ token, usuario: usuarioSemSenha });
+
   } catch (err) {
     console.error("Erro no login:", err);
     res.status(500).json({ error: "Erro interno ao fazer login." });
   }
+};
+
+/* ===========================================================
+   LOGIN ONG (Apenas CNPJ)
+=========================================================== */
+exports.loginOng = async (req, res) => {
+    const { cnpj, password } = req.body;
+
+    if (!cnpj || !password) {
+        return res.status(400).json({ error: "CNPJ e senha são obrigatórios." });
+    }
+
+    try {
+        // Busca na tabela ONG pelo CNPJ
+        const ongEncontrada = await prisma.ong.findUnique({
+            where: { cnpj }, 
+            include: { account: true }
+        });
+
+        if (!ongEncontrada || !ongEncontrada.account) {
+            return res.status(401).json({ error: 'CNPJ ou senha inválidos.' });
+        }
+
+        const usuario = ongEncontrada.account;
+
+        // Verifica a senha na conta principal
+        const passwordMatch = await bcrypt.compare(password, usuario.password); 
+        if (!passwordMatch) return res.status(401).json({ error: 'CNPJ ou senha inválidos.' });
+
+        // Gera o Token
+        const token = jwt.sign(
+            { id: usuario.id, role: usuario.role, name: usuario.nome }, 
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        const { password: _, ...usuarioSemSenha } = usuario;
+        
+        // Adiciona dados da ONG no retorno para facilitar o frontend
+        usuarioSemSenha.ong = ongEncontrada; 
+
+        res.json({ token, usuario: usuarioSemSenha });
+
+    } catch (err) {
+        console.error("Erro no Login ONG:", err);
+        res.status(500).json({ error: 'Erro ao fazer login da ONG.' });
+    }
 };
 
 exports.me = async (req, res) => {
@@ -507,43 +506,3 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-exports.loginOng = async (req, res) => {
-    const { cnpj, password } = req.body;
-
-    try {
-        // 1. Busca a conta que tem uma ONG associada com esse CNPJ
-        // Precisamos buscar na tabela Account onde a relação 'ong' tem esse CNPJ
-        const ongEncontrada = await prisma.ong.findUnique({
-        where: { cnpj }, // cnpj is unique on Ong table
-        include: { account: true }
-    });
-
-        if (!ongEncontrada || !ongEncontrada.account) {
-            return res.status(401).json({ error: 'CNPJ ou senha inválidos.' });
-        }
-
-        const usuario = ongEncontrada.account;
-
-        // 2. Verifica a senha na conta principal
-        const passwordMatch = await bcrypt.compare(password, usuario.password); 
-        if (!passwordMatch) return res.status(401).json({ error: 'CNPJ ou senha inválidos.' });
-
-        // 3. Gera o Token
-        const token = jwt.sign(
-            { id: usuario.id, role: usuario.role, name: usuario.nome }, 
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-        
-        // 4. Retorna (incluindo dados da ONG para facilitar o front)
-        const { password: _, ...usuarioSemSenha } = usuario;
-        // Adicionamos os dados da ONG no retorno do usuário para o front já ter acesso direto
-        usuarioSemSenha.ong = ongEncontrada; 
-
-        res.json({ token, usuario: usuarioSemSenha });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro ao fazer login da ONG.' });
-    }
-};
