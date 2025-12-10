@@ -79,6 +79,9 @@ const validarCNPJ = (cnpj) => {
 /* ===========================================================
    REGISTRO DE USUÁRIO PÚBLICO
 =========================================================== */
+/* ===========================================================
+   REGISTRO DE USUÁRIO PÚBLICO
+=========================================================== */
 exports.register = async (req, res) => {
   const { nome, email, cpf, password, telefone } = req.body;
 
@@ -102,6 +105,9 @@ exports.register = async (req, res) => {
       .json({ error: "A senha deve ter pelo menos 6 caracteres." });
   }
 
+  // --- CORREÇÃO AQUI: Limpa o CPF para deixar só números ---
+  const cpfLimpo = cpf.replace(/\D/g, ""); 
+
   let novaConta;
 
   try {
@@ -111,7 +117,7 @@ exports.register = async (req, res) => {
       data: {
         nome,
         email,
-        cpf,
+        cpf: cpfLimpo, // <--- Usa a versão limpa aqui!
         telefone,
         password: hashedPassword,
         role: "PUBLICO",
@@ -122,6 +128,7 @@ exports.register = async (req, res) => {
   } catch (err) {
     console.error("Erro ao CRIAR conta PÚBLICA:", err);
     if (err.code === "P2002") {
+      // Prisma error code para violação de Unique Constraint
       return res.status(400).json({ error: "Email ou CPF já está em uso." });
     }
     return res.status(500).json({ error: "Erro ao criar conta." });
