@@ -514,9 +514,9 @@ exports.loginOng = async (req, res) => {
         // 1. Busca a conta que tem uma ONG associada com esse CNPJ
         // Precisamos buscar na tabela Account onde a relação 'ong' tem esse CNPJ
         const ongEncontrada = await prisma.ong.findUnique({
-            where: { cnpj },
-            include: { account: true } // Traz a conta associada
-        });
+        where: { cnpj }, // cnpj is unique on Ong table
+        include: { account: true }
+    });
 
         if (!ongEncontrada || !ongEncontrada.account) {
             return res.status(401).json({ error: 'CNPJ ou senha inválidos.' });
