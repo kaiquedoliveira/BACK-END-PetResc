@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { authenticateToken } = require("../middlewares/authMiddleware");
-const { register, registerOng, login, me, forgotPassword, resetPassword, atualizarPerfil, verifyCode} = require('../controller/authController');
+const { register, registerOng, login, me, forgotPassword, resetPassword, loginOng,atualizarPerfil, verifyCode} = require('../controller/authController');
 
 
 router.post('/register', register);
@@ -12,6 +12,7 @@ router.put('/me', authenticateToken, atualizarPerfil);
 router.post('/forgot-password', forgotPassword); 
 router.post('/verify-code', verifyCode);       
 router.post('/reset-password', resetPassword);
+router.post('/login-ong', loginOng);
 
 
 

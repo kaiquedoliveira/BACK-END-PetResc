@@ -334,3 +334,44 @@ exports.resetPassword = async (req, res) => {
         res.status(500).json({ error: "Erro ao redefinir senha." });
     }
 };
+
+exports.loginOng = async (req, res) => {
+    const { cnpj, password } = req.body;
+
+    try {
+        // 1. Busca a conta que tem uma ONG associada com esse CNPJ
+        // Precisamos buscar na tabela Account onde a relação 'ong' tem esse CNPJ
+        const ongEncontrada = await prisma.ong.findUnique({
+            where: { cnpj },
+            include: { account: true } // Traz a conta associada
+        });
+
+        if (!ongEncontrada || !ongEncontrada.account) {
+            return res.status(401).json({ error: 'CNPJ ou senha inválidos.' });
+        }
+
+        const usuario = ongEncontrada.account;
+
+        // 2. Verifica a senha na conta principal
+        const passwordMatch = await bcrypt.compare(password, usuario.password); 
+        if (!passwordMatch) return res.status(401).json({ error: 'CNPJ ou senha inválidos.' });
+
+        // 3. Gera o Token
+        const token = jwt.sign(
+            { id: usuario.id, role: usuario.role, name: usuario.nome }, 
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+        
+        // 4. Retorna (incluindo dados da ONG para facilitar o front)
+        const { password: _, ...usuarioSemSenha } = usuario;
+        // Adicionamos os dados da ONG no retorno do usuário para o front já ter acesso direto
+        usuarioSemSenha.ong = ongEncontrada; 
+
+        res.json({ token, usuario: usuarioSemSenha });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao fazer login da ONG.' });
+    }
+};
