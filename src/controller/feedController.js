@@ -14,7 +14,7 @@ const getFeed = async (req, res) => {
           
           status 
             ? { status: { equals: status } } 
-            : { status: { in: ['DISPONIVEL', 'ENCONTRADO'] } },
+            : { status: { in: ['DISPONIVEL', 'ENCONTRADO','PERDIDO'] } },
 
           sexo ? { sexo: { equals: sexo } } : {}
         ]
