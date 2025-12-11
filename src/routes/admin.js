@@ -15,7 +15,6 @@ router.get('/ongs', authenticateToken, adminController.listarTodasOngs);
 
 router.delete('/usuarios/:id', authenticateToken, adminController.deletarUsuario);
 
-router.get('/ongs/:id', authenticateToken, adminController.obterDetalhesOng);
 
 router.get('/ongs/:id/pets', authenticateToken, adminController.listarPetsDaOng);
 
