@@ -425,7 +425,6 @@ module.exports = {
     deletarUsuario,
     listarTodasOngs,
     listarPetsDaOng,
-    obterDetalhesOng,
     listarUsuariosPublicos,
     getSystemLogs
 };
