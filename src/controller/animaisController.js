@@ -374,7 +374,7 @@ const gerarDescricaoIA = async (req, res) => {
       return res.status(400).json({ error: 'Preciso pelo menos do Nome e Espécie.' });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
       Aja como um voluntário de uma ONG de animais.
