@@ -273,6 +273,9 @@ enum StatusAdocao {
   ENCONTRADO
   DISPONIVEL
   ADOTADO
+  LAR_TEMPORARIO
+  EM_LAR_TEMPORARIO
+  EM_TRATAMENTO
 }
 
 model PedidoAdocao {
