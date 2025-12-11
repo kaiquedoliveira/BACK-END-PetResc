@@ -1,12 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
+// const multer = require('multer'); // Se não usa multer direto aqui, pode remover, mas mantive por segurança
 const animaisController = require('../controller/animaisController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
-const  { uploadAnimal } = require('../config/multer');
-
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { uploadAnimal } = require('../config/multer');
 
 
 // --- ROTAS PÚBLICAS SEM ID/PARÂMETRO (MAIS ESPECÍFICAS) ---
@@ -20,21 +17,18 @@ router.get('/gerenciar/lista', authenticateToken, authorizeRole(['ADMIN', 'ONG',
 // 3. Estatísticas (DEVE vir antes de /:id)
 router.get('/gerenciar/estatisticas/status', authenticateToken, authorizeRole('ONG'), animaisController.obterEstatisticasAnimaisPorStatus); 
 
-// Rota da IA
-
+// Rota da IA (Aponta para o Controller, que é onde a mágica acontece)
 router.post('/ia-descricao', animaisController.gerarDescricaoIA);
 
 // --- A PARTIR DAQUI PRECISAM DE AUTENTICAÇÃO E/OU ID ---
 
 router.use(authenticateToken); 
 
-
 // 4. Rota de Busca por ID (/:id - Agora vem depois de todas as rotas específicas)
 router.get('/:id', animaisController.buscarAnimalPorId);
 
 router.post('/:id/favoritar', animaisController.favoritarAnimal);
 router.delete('/:id/desfavoritar', animaisController.desfavoritarAnimal);
-
 
 router.post(
   '/',
@@ -45,6 +39,7 @@ router.post(
   ]),
   animaisController.criarAnimal
 );
+
 router.put('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.atualizarAnimal);
 router.delete('/:id', authorizeRole(['ADMIN', 'ONG', 'PUBLICO']), animaisController.deletarAnimal);
 
