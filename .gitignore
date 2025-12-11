@@ -1,11 +1,17 @@
-/node_modules
-# Keep environment variables out of version control
 
+# Dependências (Pesado, o Render instala sozinho)
+node_modules/
 
-/generated/prisma
-/package.json
-/package-lock.json
+# Variáveis de ambiente (Secretas)
+.env
 
-/README.md
+# Arquivos de sistema e IDE (Lixo)
+.DS_Store
+.vscode/
+.idea/
+
+# Build (O Render cria na hora)
+dist/
+build/
 
 
