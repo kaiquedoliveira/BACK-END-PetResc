@@ -230,8 +230,8 @@ const deletarUsuario = async (req, res) => {
       include: {
         ong: true,
         animals: true,
-        pedidoAdocao: true,
-        campanha: true,
+        pedidosAdocao: true,
+        campanhasCriadas: true,
       },
     });
 
@@ -241,29 +241,70 @@ const deletarUsuario = async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
 
-      // 1. Remove campanhas criadas pelo usuário
-      await tx.campanha.deleteMany({
-        where: { usuarioCriadorId: idConvertido },
+      // 1. Remover formulários vinculados aos pedidos
+      await tx.formularioAdocao.deleteMany({
+        where: {
+          pedido: {
+            candidatoId: idConvertido,
+          },
+        },
       });
 
-      // 2. Remove pedidos feitos pelo usuário
+      // 2. Remover pedidos de adoção feitos pelo usuário
       await tx.pedidoAdocao.deleteMany({
-        where: { accountId: idConvertido },
+        where: {
+          candidatoId: idConvertido,
+        },
       });
 
-      // 3. Remove animais onde accountId = id
+      // 3. Remover favoritos
+      await tx.favorito.deleteMany({
+        where: {
+          usuarioId: idConvertido,
+        },
+      });
+
+      // 4. Remover notificações
+      await tx.notificacao.deleteMany({
+        where: {
+          accountId: idConvertido,
+        },
+      });
+
+      // 5. Remover campanhas criadas pelo usuário
+      await tx.campanha.deleteMany({
+        where: {
+          usuarioCriadorId: idConvertido,
+        },
+      });
+
+      // 6. Remover lares temporários solicitados
+      await tx.larTemporario.deleteMany({
+        where: {
+          usuarioId: idConvertido,
+        },
+      });
+
+      // 7. Remover lares temporários aprovados pelo usuário
+      await tx.larTemporario.deleteMany({
+        where: {
+          aprovadorId: idConvertido,
+        },
+      });
+
+      // 8. Remover animais cadastrados pelo usuário
       await tx.animal.deleteMany({
         where: { accountId: idConvertido },
       });
 
-      // 4. Se for ONG, remover dados da ONG
+      // 9. Se for ONG, apagar ONG
       if (conta.ong) {
         await tx.ong.delete({
-          where: { accountId: idConvertido },
+          where: { id: idConvertido },
         });
       }
 
-      // 5. Finalmente remover a conta
+      // 10. Finalmente remover a conta
       await tx.account.delete({
         where: { id: idConvertido },
       });
