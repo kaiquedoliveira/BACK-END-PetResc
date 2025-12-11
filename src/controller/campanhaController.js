@@ -57,6 +57,88 @@ exports.create = async (req, res) => {
   }
 };
 
+exports.update = async (req, res) => {
+  const { id } = req.params;
+  const campaignId = Number(id);
+
+  if (isNaN(campaignId)) {
+    return res.status(400).json({ message: "ID inválido." });
+  }
+
+  try {
+    const userId = req.user.id;
+
+    // 1. Busca a campanha
+    const campanha = await prisma.campanha.findUnique({
+      where: { id: campaignId }
+    });
+
+    if (!campanha) {
+      return res.status(404).json({ message: "Campanha não encontrada." });
+    }
+
+    // 2. Permissão (criador ou ONG associada ao user)
+    const account = await prisma.account.findUnique({
+      where: { id: userId },
+      include: { ong: true }
+    });
+
+    const userIsOngOwner = account?.ong?.id && campanha.ongId === account.ong.id;
+    const userIsCreator = campanha.usuarioCriadorId === userId;
+
+    if (!userIsCreator && !userIsOngOwner) {
+      return res.status(403).json({ message: "Sem autorização para editar esta campanha." });
+    }
+
+    // 3. Dados enviados
+    const {
+      titulo,
+      descricao,
+      meta_financeira,
+      data_limite,
+      itens_descricao
+    } = req.body;
+
+    let itensArray = campanha.itensDescricao; // mantém os antigos se não mandar novos
+
+    if (itens_descricao) {
+      try {
+        itensArray = JSON.parse(itens_descricao);
+      } catch {
+        console.warn("Itens inválidos, ignorando.");
+      }
+    }
+
+    // 4. Trata imagem (opcional)
+    const imagemUrl = req.file ? req.file.path : campanha.imagemUrl;
+
+    // 5. Monta objeto de atualização
+    const dataToUpdate = {};
+
+    if (titulo) dataToUpdate.titulo = titulo;
+    if (descricao) dataToUpdate.descricao = descricao;
+    if (meta_financeira) dataToUpdate.metaFinanceira = parseFloat(meta_financeira);
+    if (data_limite) dataToUpdate.dataLimite = new Date(data_limite);
+    if (itensArray) dataToUpdate.itensDescricao = itensArray;
+    if (imagemUrl) dataToUpdate.imagemUrl = imagemUrl;
+
+    // 6. Atualiza
+    const updated = await prisma.campanha.update({
+      where: { id: campaignId },
+      data: dataToUpdate
+    });
+
+    return res.json({
+      message: "Campanha atualizada com sucesso!",
+      campanha: updated
+    });
+
+  } catch (error) {
+    console.error("Erro ao atualizar campanha:", error);
+    return res.status(500).json({ message: "Erro interno ao atualizar campanha." });
+  }
+};
+
 exports.getAll = async (req, res) => {
   try {
     const campanhas = await prisma.campanha.findMany({

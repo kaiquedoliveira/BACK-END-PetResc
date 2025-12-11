@@ -7,6 +7,8 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 
 router.get('/', campanhaController.getAll);
 
+router.put( '/:id',authenticateToken, uploadCampanha.single('imagem'),campanhaController.update);
+
 
 router.get('/minhas', authenticateToken, campanhaController.listarMinhas);
 
