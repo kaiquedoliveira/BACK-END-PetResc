@@ -217,50 +217,69 @@ const listarTodasOngs = async (req, res) => {
 
 // 6. DELETAR USUÁRIO (Serve para ONG ou Pessoa)
 const deletarUsuario = async (req, res) => {
-    const { id } = req.params;
-    try {
-        // Deleta a conta (O Prisma deleta a entrada na tabela ONG automaticamente se tiver Cascade)
-        await prisma.account.delete({
-            where: { id: Number(id) }
-        });
-        res.json({ message: "Usuário excluído com sucesso." });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Erro ao excluir usuário. Verifique se existem dependências." });
+  const { id } = req.params;
+  const idConvertido = Number(id);
+
+  try {
+    if (req.user?.id === idConvertido) {
+      return res.status(400).json({ error: "Você não pode deletar sua própria conta." });
     }
+
+    const conta = await prisma.account.findUnique({
+      where: { id: idConvertido },
+      include: {
+        ong: true,
+        animals: true,
+        pedidoAdocao: true,
+        campanha: true,
+      },
+    });
+
+    if (!conta) {
+      return res.status(404).json({ error: "Conta não encontrada." });
+    }
+
+    await prisma.$transaction(async (tx) => {
+
+      // 1. Remove campanhas criadas pelo usuário
+      await tx.campanha.deleteMany({
+        where: { usuarioCriadorId: idConvertido },
+      });
+
+      // 2. Remove pedidos feitos pelo usuário
+      await tx.pedidoAdocao.deleteMany({
+        where: { accountId: idConvertido },
+      });
+
+      // 3. Remove animais onde accountId = id
+      await tx.animal.deleteMany({
+        where: { accountId: idConvertido },
+      });
+
+      // 4. Se for ONG, remover dados da ONG
+      if (conta.ong) {
+        await tx.ong.delete({
+          where: { accountId: idConvertido },
+        });
+      }
+
+      // 5. Finalmente remover a conta
+      await tx.account.delete({
+        where: { id: idConvertido },
+      });
+    });
+
+    res.json({ message: "Usuário e todos os dados vinculados foram excluídos." });
+
+  } catch (err) {
+    console.error("Erro ao excluir usuário:", err);
+    res.status(500).json({
+      error: "Erro ao excluir usuário. Dados vinculados impedem a exclusão.",
+      detalhe: err.message,
+    });
+  }
 };
 
-const obterDetalhesOng = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const ong = await prisma.account.findUnique({
-            where: { id: Number(id) },
-            include: {
-                ong: true, // Dados específicos (CNPJ, Descrição)
-                _count: { select: { animals: true } } // Contagem de animais
-            }
-        });
-
-        if (!ong) return res.status(404).json({ error: "ONG não encontrada." });
-
-        // Formata para o front
-        const dadosFormatados = {
-            id: ong.id,
-            nome: ong.ong?.nome || ong.nome,
-            email: ong.email,
-            telefone: ong.telefone,
-            cnpj: ong.ong?.cnpj || "Não informado",
-            descricao: ong.ong?.descricao || "Sem descrição.",
-            endereco: ong.ong?.cidade ? `${ong.ong.rua}, ${ong.ong.numero} - ${ong.ong.bairro}, ${ong.ong.cidade}/${ong.ong.estado}` : "Endereço não cadastrado",
-            totalAnimais: ong._count.animals
-        };
-
-        res.json(dadosFormatados);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Erro ao buscar detalhes." });
-    }
-};
 
 // 8. LISTAR PETS DE UMA ONG ESPECÍFICA
 const listarPetsDaOng = async (req, res) => {
