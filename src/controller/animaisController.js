@@ -1,5 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Lista todos os animais ou com filtros
 const listarAnimais = async (req, res) => {
@@ -435,6 +437,47 @@ const obterEstatisticasAnimaisPorStatus = async (req, res) => {
   }
 };
 
+const gerarDescricaoIA = async (req, res) => {
+  try {
+    const { nome, especie, caracteristicas } = req.body;
+
+    
+    if (!nome || !especie) {
+      return res.status(400).json({ error: 'Preciso pelo menos do Nome e Espécie.' });
+    }
+
+    
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    // como a IA deve se comportar
+    const prompt = `
+      Aja como um voluntário de uma ONG de animais.
+      Escreva uma descrição para adoção em primeira pessoa (como se fosse o animal falando).
+      
+      O texto deve ser:
+      - Curto (máximo 4 linhas)
+      - Emocionante e fofo
+      
+      Dados do animal:
+      Nome: ${nome}
+      Espécie: ${especie}
+      Detalhes extras: ${caracteristicas || "Amável e precisa de um lar."}
+    `;
+
+   
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const textoFinal = response.text();
+
+    
+    return res.json({ texto: textoFinal });
+
+  } catch (error) {
+    console.error("Erro no Gemini:", error);
+    return res.status(500).json({ error: 'Erro ao gerar texto com IA.' });
+  }
+};
+
 module.exports = {
   listarAnimais,
   buscarAnimalPorId,
@@ -445,4 +488,5 @@ module.exports = {
   desfavoritarAnimal,
   listarAnimaisParaGerenciamento,
   obterEstatisticasAnimaisPorStatus,
+  gerarDescricaoIA,
 };

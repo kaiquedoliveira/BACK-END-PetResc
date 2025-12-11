@@ -3,8 +3,6 @@ const router = express.Router();
 const multer = require('multer');
 const animaisController = require('../controller/animaisController');
 const { authenticateToken, authorizeRole } = require('../middlewares/authMiddleware');
-
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const  { uploadAnimal } = require('../config/multer');
 
 
@@ -22,39 +20,14 @@ router.get('/gerenciar/lista', authenticateToken, authorizeRole(['ADMIN', 'ONG',
 // 3. Estatísticas (DEVE vir antes de /:id)
 router.get('/gerenciar/estatisticas/status', authenticateToken, authorizeRole('ONG'), animaisController.obterEstatisticasAnimaisPorStatus); 
 
+// Rota da IA
+
+router.post('/ia-descricao', animaisController.gerarDescricaoIA);
 
 // --- A PARTIR DAQUI PRECISAM DE AUTENTICAÇÃO E/OU ID ---
 
 router.use(authenticateToken); 
 
-// Rota da IA
-
-router.post("/ia-descricao", async (req, res) => {
-  try {
-    const { nome, especie, caracteristicas } = req.body;
-
-    if (!nome || !especie) {
-      return res.status(400).json({ error: "Nome e espécie são obrigatórios." });
-    }
-
-    console.log(`🤖 Gemini gerando para: ${nome}`);
-
-    // Configura o modelo
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `Crie uma descrição curta (máx 200 caracteres), emocionante e apelativa para adoção de um ${especie} chamado ${nome}. Características: ${caracteristicas}.`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const texto = response.text();
-
-    return res.json({ texto });
-
-  } catch (error) {
-    console.error("Erro Gemini:", error);
-    return res.status(500).json({ error: "Erro ao gerar descrição." });
-  }
-});
 
 // 4. Rota de Busca por ID (/:id - Agora vem depois de todas as rotas específicas)
 router.get('/:id', animaisController.buscarAnimalPorId);
