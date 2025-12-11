@@ -246,10 +246,32 @@ const remove = async (req, res) => {
   }
 };
 
+const listarParaFeed = async (req, res) => {
+  try {
+    // Busca TODOS os registros de lar temporário
+    // Você pode filtrar por status se quiser, ex: onde status não seja 'REJEITADO'
+    const lares = await prisma.larTemporario.findMany({
+      include: {
+        usuario: {
+          select: { id: true, nome: true, email: true, telefone: true }
+        }
+      },
+      orderBy: { id: 'desc' } // Mais recentes primeiro
+    });
+
+    res.json(lares);
+
+  } catch (err) {
+    console.error("Erro ao listar feed de lares:", err);
+    res.status(500).json({ error: 'Erro ao buscar lista de lares.' });
+  }
+};
+
 module.exports = {
   getAll,
   getById,
   create,
   updateStatus,
-  remove
+  remove,
+  listarParaFeed
 };

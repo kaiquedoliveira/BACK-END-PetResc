@@ -5,6 +5,7 @@ const { authenticateToken, authorizeRole } = require('../middlewares/authMiddlew
 
 
 router.use(authenticateToken);
+router.get('/feed', authorizeRole(['ONG', 'ADMIN']), larTemporarioController.listarParaFeed);
 
 
 router.get('/', larTemporarioController.getAll);
