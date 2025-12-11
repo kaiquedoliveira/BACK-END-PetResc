@@ -19,6 +19,7 @@ router.get('/gerenciar/estatisticas/status', authenticateToken, authorizeRole('O
 
 // Rota da IA (Aponta para o Controller, que é onde a mágica acontece)
 router.post('/ia-descricao', animaisController.gerarDescricaoIA);
+router.get('/debug/modelos', animaisController.listarModelosDisponiveis);
 
 // --- A PARTIR DAQUI PRECISAM DE AUTENTICAÇÃO E/OU ID ---
 

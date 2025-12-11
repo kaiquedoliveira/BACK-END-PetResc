@@ -402,6 +402,24 @@ const gerarDescricaoIA = async (req, res) => {
   }
 };
 
+const listarModelosDisponiveis = async (req, res) => {
+  try {
+   
+    const key = process.env.GEMINI_API_KEY;
+    
+    if (!key) return res.status(500).json({ error: "Sem chave API configurada" });
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    const data = await response.json();
+
+    return res.json(data);
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao listar modelos" });
+  }
+};
+
 module.exports = {
   listarAnimais,
   buscarAnimalPorId,
@@ -413,4 +431,5 @@ module.exports = {
   listarAnimaisParaGerenciamento,
   obterEstatisticasAnimaisPorStatus,
   gerarDescricaoIA,
+  listarModelosDisponiveis,
 };
